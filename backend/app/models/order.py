@@ -3,11 +3,11 @@ import uuid
 from typing import TYPE_CHECKING, List, Optional
 import enum
 
-from sqlalchemy import Enum, Float, ForeignKey, Integer, String, Text
-from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy import Enum, Float, ForeignKey, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base, BaseModel
+from app.db.types import UUIDType
 
 if TYPE_CHECKING:
     from app.models.organization import Organization
@@ -37,13 +37,13 @@ class Order(Base, BaseModel):
     __tablename__ = "orders"
 
     organization_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True),
+        UUIDType,
         ForeignKey("organizations.id", ondelete="CASCADE"),
         nullable=False,
         index=True,
     )
     created_by: Mapped[Optional[uuid.UUID]] = mapped_column(
-        UUID(as_uuid=True),
+        UUIDType,
         ForeignKey("users.id", ondelete="SET NULL"),
         nullable=True,
     )
@@ -83,13 +83,13 @@ class OrderItem(Base, BaseModel):
     __tablename__ = "order_items"
 
     order_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True),
+        UUIDType,
         ForeignKey("orders.id", ondelete="CASCADE"),
         nullable=False,
         index=True,
     )
     product_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True),
+        UUIDType,
         ForeignKey("products.id", ondelete="RESTRICT"),
         nullable=False,
         index=True,

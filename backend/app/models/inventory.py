@@ -3,10 +3,10 @@ import uuid
 from typing import TYPE_CHECKING, Optional
 
 from sqlalchemy import Float, ForeignKey, String, UniqueConstraint
-from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base, BaseModel
+from app.db.types import UUIDType
 
 if TYPE_CHECKING:
     from app.models.product import Product
@@ -21,13 +21,13 @@ class InventoryItem(Base, BaseModel):
     )
 
     product_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True),
+        UUIDType,
         ForeignKey("products.id", ondelete="CASCADE"),
         nullable=False,
         index=True,
     )
     warehouse_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True),
+        UUIDType,
         ForeignKey("warehouses.id", ondelete="CASCADE"),
         nullable=False,
         index=True,

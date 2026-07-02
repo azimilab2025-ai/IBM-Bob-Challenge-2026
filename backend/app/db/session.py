@@ -16,13 +16,23 @@ logger = get_logger(__name__)
 
 def _build_engine():
     settings = get_settings()
-    engine = create_engine(
-        settings.DATABASE_URL,
-        pool_size=settings.DATABASE_POOL_SIZE,
-        max_overflow=settings.DATABASE_MAX_OVERFLOW,
-        pool_pre_ping=True,  # Detect stale connections
-        echo=settings.DEBUG and not settings.is_production,
-    )
+    db_url = settings.DATABASE_URL
+
+    # SQLite does not support connection pooling arguments
+    if db_url.startswith("sqlite"):
+        engine = create_engine(
+            db_url,
+            connect_args={"check_same_thread": False},
+            echo=settings.DEBUG and not settings.is_production,
+        )
+    else:
+        engine = create_engine(
+            db_url,
+            pool_size=settings.DATABASE_POOL_SIZE,
+            max_overflow=settings.DATABASE_MAX_OVERFLOW,
+            pool_pre_ping=True,
+            echo=settings.DEBUG and not settings.is_production,
+        )
 
     @event.listens_for(engine, "connect")
     def on_connect(dbapi_connection, connection_record):

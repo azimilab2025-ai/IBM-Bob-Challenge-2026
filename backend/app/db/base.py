@@ -5,9 +5,10 @@ Import Base here and use it for all model definitions.
 import uuid
 from datetime import datetime, timezone
 
-from sqlalchemy import DateTime, String, func
-from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy import DateTime, func
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
+
+from app.db.types import UUIDType
 
 
 class Base(DeclarativeBase):
@@ -32,10 +33,10 @@ class TimestampMixin:
 
 
 class UUIDPrimaryKeyMixin:
-    """Adds a UUID primary key column."""
+    """Adds a cross-dialect UUID primary key column."""
 
     id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True),
+        UUIDType,
         primary_key=True,
         default=uuid.uuid4,
         nullable=False,

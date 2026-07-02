@@ -3,10 +3,10 @@ import uuid
 from typing import Optional
 
 from sqlalchemy import ForeignKey, JSON, String, Text
-from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base import Base, BaseModel
+from app.db.types import UUIDType
 
 
 class ActivityLog(Base, BaseModel):
@@ -14,13 +14,13 @@ class ActivityLog(Base, BaseModel):
     __tablename__ = "activity_logs"
 
     user_id: Mapped[Optional[uuid.UUID]] = mapped_column(
-        UUID(as_uuid=True),
+        UUIDType,
         ForeignKey("users.id", ondelete="SET NULL"),
         nullable=True,
         index=True,
     )
     organization_id: Mapped[Optional[uuid.UUID]] = mapped_column(
-        UUID(as_uuid=True),
+        UUIDType,
         ForeignKey("organizations.id", ondelete="SET NULL"),
         nullable=True,
         index=True,

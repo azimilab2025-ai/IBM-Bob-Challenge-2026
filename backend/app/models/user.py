@@ -4,10 +4,10 @@ from typing import TYPE_CHECKING, Optional
 import enum
 
 from sqlalchemy import Boolean, Enum, ForeignKey, String
-from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base, BaseModel
+from app.db.types import UUIDType
 
 if TYPE_CHECKING:
     from app.models.organization import Organization
@@ -34,7 +34,7 @@ class User(Base, BaseModel):
     )
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
     organization_id: Mapped[Optional[uuid.UUID]] = mapped_column(
-        UUID(as_uuid=True),
+        UUIDType,
         ForeignKey("organizations.id", ondelete="SET NULL"),
         nullable=True,
         index=True,

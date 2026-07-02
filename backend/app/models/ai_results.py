@@ -3,10 +3,10 @@ import uuid
 from typing import TYPE_CHECKING, Optional
 
 from sqlalchemy import Float, ForeignKey, Integer, JSON, String, Text
-from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base, BaseModel
+from app.db.types import UUIDType
 
 if TYPE_CHECKING:
     from app.models.order import Order
@@ -19,13 +19,13 @@ class WarehouseAllocationResult(Base, BaseModel):
     __tablename__ = "warehouse_allocation_results"
 
     order_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True),
+        UUIDType,
         ForeignKey("orders.id", ondelete="CASCADE"),
         nullable=False,
         index=True,
     )
     warehouse_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True),
+        UUIDType,
         ForeignKey("warehouses.id", ondelete="CASCADE"),
         nullable=False,
         index=True,
@@ -45,13 +45,13 @@ class DemandForecast(Base, BaseModel):
     __tablename__ = "demand_forecasts"
 
     product_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True),
+        UUIDType,
         ForeignKey("products.id", ondelete="CASCADE"),
         nullable=False,
         index=True,
     )
     warehouse_id: Mapped[Optional[uuid.UUID]] = mapped_column(
-        UUID(as_uuid=True),
+        UUIDType,
         ForeignKey("warehouses.id", ondelete="SET NULL"),
         nullable=True,
         index=True,
@@ -71,13 +71,13 @@ class InventoryRecommendation(Base, BaseModel):
     __tablename__ = "inventory_recommendations"
 
     product_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True),
+        UUIDType,
         ForeignKey("products.id", ondelete="CASCADE"),
         nullable=False,
         index=True,
     )
     warehouse_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True),
+        UUIDType,
         ForeignKey("warehouses.id", ondelete="CASCADE"),
         nullable=False,
         index=True,
@@ -98,7 +98,7 @@ class RouteOptimizationResult(Base, BaseModel):
     __tablename__ = "route_optimization_results"
 
     organization_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True),
+        UUIDType,
         ForeignKey("organizations.id", ondelete="CASCADE"),
         nullable=False,
         index=True,

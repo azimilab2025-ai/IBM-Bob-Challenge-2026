@@ -3,10 +3,10 @@ import uuid
 from typing import TYPE_CHECKING, List, Optional
 
 from sqlalchemy import Boolean, Float, ForeignKey, Integer, String, Text
-from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base, BaseModel
+from app.db.types import UUIDType
 
 if TYPE_CHECKING:
     from app.models.organization import Organization
@@ -18,7 +18,7 @@ class Warehouse(Base, BaseModel):
     __tablename__ = "warehouses"
 
     organization_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True),
+        UUIDType,
         ForeignKey("organizations.id", ondelete="CASCADE"),
         nullable=False,
         index=True,
