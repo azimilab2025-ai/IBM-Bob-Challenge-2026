@@ -5,8 +5,8 @@ All shared dependencies (DB session, current user, role checks) are defined here
 import uuid
 from typing import Optional
 
-from fastapi import Depends, Header
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+from fastapi import Depends
 from sqlalchemy.orm import Session
 
 from app.core.exceptions import AuthenticationError, AuthorizationError
@@ -21,9 +21,7 @@ async def get_current_user_id(
 ) -> str:
     """
     Extract and validate the current user ID from the Authorization header.
-
-    Raises:
-        AuthenticationError: If no token or invalid token.
+    Raises AuthenticationError if no valid token is provided.
     """
     if credentials is None:
         raise AuthenticationError("Authorization header is required")

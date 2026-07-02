@@ -1,4 +1,6 @@
 """Auth request and response schemas."""
+from typing import Optional
+
 from pydantic import BaseModel, EmailStr, Field
 
 
@@ -23,6 +25,6 @@ class UserProfile(BaseModel):
     email: str
     full_name: str
     role: str
-    organization_id: str | None
+    organization_id: Optional[str] = None
 
     model_config = {"from_attributes": True}

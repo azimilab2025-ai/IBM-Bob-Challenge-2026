@@ -29,7 +29,7 @@ class ActivityLog(Base, BaseModel):
     resource_type: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
     resource_id: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
     description: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
-    metadata: Mapped[Optional[dict]] = mapped_column(JSON, nullable=True)
+    extra_data: Mapped[Optional[dict]] = mapped_column("metadata", JSON, nullable=True)
     ip_address: Mapped[Optional[str]] = mapped_column(String(45), nullable=True)
 
     def __repr__(self) -> str:
