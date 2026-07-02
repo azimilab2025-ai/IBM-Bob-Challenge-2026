@@ -1,193 +1,192 @@
 # Architecture Overview
 
+---
+
 ## Design Principles
 
-This system is built on five core engineering principles:
-
-1. **Layered Architecture** — strict separation between Router, Service, Repository, and Model layers
-2. **Independent AI Modules** — AI services are pluggable and testable in isolation
-3. **SaaS Readiness** — multi-tenant architecture from day one
-4. **Security by Design** — authentication and authorization are not afterthoughts
-5. **Extensibility** — every interface is designed for future replacement without breaking changes
+1. **Clean Architecture** — strict one-way dependency: Router → Service → Repository → Model
+2. **Independent AI Modules** — AI services are pluggable, isolated, and testable without the rest of the application
+3. **SaaS Readiness** — multi-tenant from day one (every record belongs to an Organization)
+4. **Security by Design** — authentication and authorization enforced at the dependency injection layer
+5. **No Business Logic in Routers** — routers only validate input, call a service, and serialize output
 
 ---
 
 ## System Layers
 
 ```
+HTTP Request
+     │
+     ▼
 ┌─────────────────────────────────────────────┐
-│              HTTP Request                    │
+│              Routers (app/api/)              │
+│  - Validate request (Pydantic)              │
+│  - Enforce authentication (JWT dependency)  │
+│  - Call exactly one Service method          │
+│  - Serialize response (Pydantic)            │
+│  - NO if/else business rules                │
 └───────────────────┬─────────────────────────┘
                     │
-┌───────────────────▼─────────────────────────┐
-│           API Layer (Routers)                │
-│  - Request validation                        │
-│  - Response serialization                   │
-│  - Authentication middleware                 │
-│  - NO business logic                        │
-└───────────────────┬─────────────────────────┘
-                    │
-┌───────────────────▼─────────────────────────┐
-│          Service Layer                       │
-│  - All business logic lives here            │
-│  - Orchestrates repositories and AI         │
-│  - Domain validation and rules              │
-│  - Transaction management                   │
-└──────────┬────────────────┬─────────────────┘
-           │                │
-┌──────────▼──────┐  ┌──────▼──────────────────┐
-│ Repository Layer│  │      AI Modules          │
-│ - DB queries    │  │ - Demand Forecasting     │
-│ - CRUD only     │  │ - Warehouse Allocation   │
-│ - No logic      │  │ - Inventory Optimization │
-└──────────┬──────┘  │ - Route Optimization     │
-           │         └──────────────────────────┘
-┌──────────▼──────────────────────────────────┐
-│              Database (PostgreSQL)           │
-│  - SQLAlchemy ORM models                    │
-│  - Alembic migrations                       │
-└─────────────────────────────────────────────┘
-```
-
----
-
-## Module Map
-
-| Module | Path | Responsibility |
-|--------|------|----------------|
-| `core/config.py` | Settings management | Environment variables, app configuration |
-| `core/security.py` | Auth utilities | JWT encoding/decoding, password hashing |
-| `core/dependencies.py` | FastAPI deps | Current user injection, DB session |
-| `core/logging.py` | Structured logging | Centralized log configuration |
-| `db/session.py` | DB session | SQLAlchemy session factory |
-| `db/base.py` | Base model | Declarative base, common columns |
-| `models/` | ORM models | SQLAlchemy table definitions |
-| `schemas/` | Pydantic schemas | Request/response contracts |
-| `repositories/` | Data access | All database queries |
-| `services/` | Business logic | All domain operations |
-| `api/v1/routers/` | HTTP handlers | Route definitions only |
-| `ai/interfaces/` | AI contracts | Abstract base classes |
-| `ai/*/` | AI implementations | Pluggable algorithm modules |
-
----
-
-## Data Flow: Order Allocation
-
-```
-POST /api/v1/orders/{id}/allocate
+                    ▼
+┌───────────────────────────────────────────────┐
+│              Services (app/services/)          │
+│  - All business logic lives here              │
+│  - Validate domain rules                      │
+│  - Orchestrate repositories                   │
+│  - Call AI modules when needed                │
+│  - Control transactions (commit/rollback)     │
+└───────────────┬───────────────┬───────────────┘
+                │               │
+                ▼               ▼
+┌───────────────────┐  ┌──────────────────────┐
+│   Repositories    │  │     AI Modules        │
+│  (app/repos/)     │  │     (ai/)             │
+│  - SQL queries    │  │  - Pluggable impls    │
+│  - No logic       │  │  - Isolated, testable │
+└────────┬──────────┘  └──────────────────────┘
          │
          ▼
-    OrderRouter
-    (validate request, check auth)
-         │
-         ▼
-    OrderService
-    (orchestrate allocation workflow)
-         │
-    ┌────┴──────────────────────────────┐
-    │                                   │
-    ▼                                   ▼
-InventoryRepository          WarehouseAllocationEngine
-(fetch stock levels)         (score and rank warehouses)
-    │                                   │
-    └────────────────┬──────────────────┘
-                     ▼
-              AllocationResult
-              (with explanation)
-                     │
-                     ▼
-         WarehouseAllocationResult
-              (persisted to DB)
-                     │
-                     ▼
-              JSON Response
+┌─────────────────────┐
+│   ORM Models        │
+│  (app/models/)      │
+│  - Table definitions│
+│  - Computed props   │
+│  - No business logic│
+└─────────────────────┘
 ```
 
 ---
 
-## Multi-Tenant Design
+## Multi-Tenancy
 
-Each organization operates in complete data isolation:
+Every domain entity (Warehouse, Product, InventoryItem, Order) is scoped to an `Organization`. The `CurrentUserContext` dependency resolves the calling user's organization from the JWT token and injects it into every service call. A user can never access data from another organization.
 
-- Every major entity has an `organization_id` foreign key
-- All repository queries are scoped by `organization_id`
-- Users are bound to exactly one organization (except `system_admin`)
-- System Admin operates across all organizations
+```python
+# Every protected route resolves org_id from the authenticated token
+org_id = ctx.resolve_org_id()
+warehouses = svc.list_by_org(org_id, ...)
+```
 
-This design supports future SaaS evolution without requiring a schema redesign.
+---
+
+## Authentication & Authorization
+
+- **JWT tokens** (HS256) are issued on login and carry `sub` (user ID), `role`, and `org_id` claims
+- **`get_current_user_id`** dependency — validates JWT and extracts user ID
+- **`get_current_user_context`** dependency — full context: user UUID, role, org_id
+- **`ctx.require_role(...)`** — raises `AuthorizationError` if the caller's role is not in the allowed set
+- Role checks happen in routers, not in services
+
+---
+
+## Database Schema
+
+12 tables across 4 domains:
+
+```
+organizations
+    ├── users
+    ├── warehouses
+    │       └── inventory_items ──────── products
+    │                                        │
+    └── orders ─────────────── order_items ──┘
+            │
+            └── warehouse_allocation_results
+
+demand_forecasts
+inventory_recommendations
+route_optimization_results
+activity_logs
+```
+
+All primary keys and foreign keys use `UUIDType` — a cross-dialect TypeDecorator that stores native UUIDs on PostgreSQL and CHAR(36) on SQLite, exposing `uuid.UUID` objects to application code in both cases.
 
 ---
 
 ## AI Module Architecture
 
+Each AI module implements a defined abstract interface:
+
 ```
-┌─────────────────────────────────────┐
-│         Abstract Interface          │
-│  (e.g., BaseForecaster)             │
-│  - defines input/output contract    │
-│  - enforces predict() signature     │
-└────────────────┬────────────────────┘
-                 │  implements
-    ┌────────────┴────────────────┐
-    │                             │
-┌───▼──────────────┐   ┌─────────▼──────────────┐
-│ MovingAverage    │   │ FutureMLModel           │
-│ Forecaster (v1)  │   │ (plug in without        │
-│                  │   │  touching business logic)│
-└──────────────────┘   └────────────────────────┘
+ai/
+├── interfaces/
+│   ├── demand_forecaster.py     # DemandForecasterInterface
+│   ├── inventory_optimizer.py   # InventoryOptimizerInterface
+│   ├── warehouse_allocator.py   # WarehouseAllocatorInterface
+│   └── route_optimizer.py       # RouteOptimizerInterface
+├── demand_forecasting/
+│   └── moving_average.py        # MovingAverageForecaster(DemandForecasterInterface)
+├── inventory_optimization/
+│   └── eoq_optimizer.py         # EOQOptimizer(InventoryOptimizerInterface)
+├── warehouse_allocation/
+│   └── allocation_engine.py     # AllocationEngine(WarehouseAllocatorInterface)
+└── route_optimization/
+    └── basic_router.py          # NearestNeighborRouter(RouteOptimizerInterface)
 ```
 
-All AI modules:
-- Accept a well-defined input schema
-- Return a well-defined output schema including `explanation`
-- Have zero dependency on the database
-- Are independently testable
+Services instantiate the concrete implementation. To swap the algorithm, change one line in the service — no other code changes required.
 
 ---
 
-## Security Architecture
+## Request Flow Example: Create Order
 
-- **Secrets**: all from environment variables, never in source code
-- **Passwords**: bcrypt hashed, never stored or logged as plaintext
-- **JWT**: centralized in `core/security.py`, validated per-request via dependency
-- **Authorization**: role-based, enforced at service layer
-- **Input validation**: Pydantic schemas on every endpoint
-- **Principle of Least Privilege**: each role can only access what it needs
+```
+POST /api/v1/orders
+     │
+     ▼ OrdersRouter.create_order()
+         - Validates OrderCreate schema
+         - Calls ctx.resolve_org_id()
+         │
+         ▼ OrderService.create(org_id, user_id, data)
+             - Checks reference_number uniqueness (via OrderRepository)
+             - Creates Order + OrderItems
+             - Returns Order ORM object
+         │
+         ▼ Router commits transaction, refreshes, serializes OrderResponse
+         │
+         ▼ HTTP 201 response
+```
+
+```
+POST /api/v1/orders/{id}/allocate
+     │
+     ▼ OrdersRouter.allocate_order()
+         │
+         ▼ AIService.allocate_order(order_id, org_id)
+             - Loads Order (via OrderRepository)
+             - Loads active Warehouses (via WarehouseRepository)
+             - Loads Inventory (via InventoryRepository)
+             - Calls AllocationEngine.allocate(order, warehouses, inventory)
+             - Persists WarehouseAllocationResult
+             - Returns result
+         │
+         ▼ HTTP 200 with allocation details + explanation
+```
 
 ---
 
-## Database Design Principles
+## Error Handling
 
-- **PostgreSQL** as the only supported database
-- **Alembic** for all schema changes — no `create_all` in production
-- **Soft deletes** where appropriate (is_active flag)
-- **Audit columns** on all major tables: `created_at`, `updated_at`, `created_by`
-- **Foreign keys and indexes** explicitly defined
-- **No raw SQL** in application code — SQLAlchemy ORM only
+All domain errors map to HTTP status codes via exception handlers registered in `main.py`:
+
+| Exception | HTTP Status |
+|---|---|
+| `NotFoundError` | 404 |
+| `ConflictError` | 409 |
+| `ValidationError` | 400 |
+| `AuthenticationError` | 401 |
+| `AuthorizationError` | 403 |
+| `AppException` | 500 |
+
+No raw exceptions leak to the HTTP layer.
 
 ---
 
-## API Design Contract
+## Cross-Dialect UUID
 
-- **Versioned**: `/api/v1/`
-- **RESTful**: standard HTTP methods and status codes
-- **Consistent response envelope**:
-  ```json
-  {
-    "success": true,
-    "data": {...},
-    "message": "Operation completed",
-    "meta": {"page": 1, "total": 100}
-  }
-  ```
-- **Error response**:
-  ```json
-  {
-    "success": false,
-    "error": "RESOURCE_NOT_FOUND",
-    "message": "Warehouse with id 42 not found",
-    "details": {}
-  }
-  ```
-- **Pagination** on all list endpoints
-- **OpenAPI** auto-generated via FastAPI
+`app/db/types.py` defines `UUIDType`, a `TypeDecorator` that:
+- On PostgreSQL: delegates to native `UUID(as_uuid=True)` — optimal storage and indexing
+- On SQLite (tests): stores as `CHAR(36)` hyphenated string
+- Both sides: coerce to/from `uuid.UUID` transparently
+
+This ensures the production schema uses native PostgreSQL UUID columns, while the test suite runs without any database infrastructure.

@@ -1,4 +1,6 @@
-# API Documentation
+# API Reference
+
+---
 
 ## Base URL
 
@@ -6,134 +8,304 @@
 http://localhost:8000/api/v1
 ```
 
-## Authentication
-
-All endpoints (except `/auth/login` and `/health`) require a Bearer token:
-
-```
-Authorization: Bearer <access_token>
-```
-
----
-
-## Standard Response Format
-
-### Success
+All responses use a consistent envelope:
 
 ```json
 {
   "success": true,
   "data": { ... },
-  "message": "Operation completed successfully",
+  "message": "Optional context message"
+}
+```
+
+Paginated responses use:
+
+```json
+{
+  "data": [ ... ],
   "meta": {
     "page": 1,
     "per_page": 20,
-    "total": 150
+    "total": 42,
+    "total_pages": 3
   }
 }
 ```
 
-### Error
+Error responses:
 
 ```json
 {
   "success": false,
-  "error": "RESOURCE_NOT_FOUND",
-  "message": "Warehouse with id 42 not found",
+  "error": "NOT_FOUND",
+  "message": "Warehouse not found",
   "details": {}
 }
 ```
 
 ---
 
-## HTTP Status Codes
+## Authentication
 
-| Code | Meaning |
-|------|---------|
-| 200 | Success |
-| 201 | Created |
-| 204 | No Content (delete) |
-| 400 | Bad Request / Validation Error |
-| 401 | Unauthorized |
-| 403 | Forbidden |
-| 404 | Not Found |
-| 409 | Conflict |
-| 422 | Unprocessable Entity |
-| 500 | Internal Server Error |
+All endpoints except `/health` and `/api/v1/auth/login` require a Bearer token:
 
----
+```
+Authorization: Bearer <access_token>
+```
 
-## Endpoints Summary
+### POST `/api/v1/auth/login`
 
-### Authentication
-- `POST /auth/login` — Obtain access token
-- `POST /auth/refresh` — Refresh access token
-- `POST /auth/logout` — Revoke token
-- `GET /auth/me` — Current user profile
+```json
+// Request
+{
+  "email": "admin@example.com",
+  "password": "YourPassword123!"
+}
 
-### Users
-- `GET /users` — List users (admin)
-- `POST /users` — Create user
-- `GET /users/{id}` — Get user
-- `PUT /users/{id}` — Update user
-- `DELETE /users/{id}` — Deactivate user
+// Response 200
+{
+  "success": true,
+  "data": {
+    "access_token": "eyJ...",
+    "refresh_token": "eyJ...",
+    "token_type": "bearer",
+    "expires_in": 3600
+  }
+}
+```
 
-### Organizations
-- `GET /organizations` — List organizations
-- `POST /organizations` — Create organization
-- `GET /organizations/{id}` — Get organization
-- `PUT /organizations/{id}` — Update organization
+### POST `/api/v1/auth/refresh`
 
-### Warehouses
-- `GET /warehouses` — List warehouses (org-scoped)
-- `POST /warehouses` — Create warehouse
-- `GET /warehouses/{id}` — Get warehouse
-- `PUT /warehouses/{id}` — Update warehouse
-- `DELETE /warehouses/{id}` — Deactivate warehouse
+```json
+// Request
+{ "refresh_token": "eyJ..." }
 
-### Products
-- `GET /products` — List products (org-scoped)
-- `POST /products` — Create product
-- `GET /products/{id}` — Get product
-- `PUT /products/{id}` — Update product
+// Response 200 — same structure as login
+```
 
-### Inventory
-- `GET /inventory` — List inventory items
-- `POST /inventory` — Add inventory record
-- `PUT /inventory/{id}` — Update inventory quantity
-- `GET /inventory/alerts` — Low stock alerts
+### GET `/api/v1/auth/me`
 
-### Orders
-- `GET /orders` — List orders (org-scoped, paginated)
-- `POST /orders` — Create order with items
-- `GET /orders/{id}` — Get order details
-- `PUT /orders/{id}/status` — Update order status
-- `POST /orders/{id}/allocate` — Trigger warehouse allocation
-
-### AI Insights
-- `POST /ai/forecast` — Demand forecast for a product
-- `POST /ai/optimize-inventory` — Inventory optimization recommendations
-- `POST /ai/allocate-warehouse` — Warehouse allocation for an order
-- `POST /ai/optimize-route` — Route optimization for deliveries
-
-### Dashboard
-- `GET /dashboard/summary` — KPIs and operational overview
-- `GET /dashboard/alerts` — Active operational alerts
-
-### Reports
-- `GET /reports/inventory` — Inventory status report
-- `GET /reports/orders` — Order activity report
-- `GET /reports/forecasts` — Forecast accuracy report
-
-### System
-- `GET /health` — Health check (no auth required)
-- `GET /settings` — System settings (admin)
+```json
+// Response 200
+{
+  "success": true,
+  "data": {
+    "id": "uuid",
+    "email": "admin@example.com",
+    "full_name": "System Administrator",
+    "role": "system_admin",
+    "organization_id": "uuid"
+  }
+}
+```
 
 ---
 
-## Interactive Docs
+## Warehouses
 
-When the server is running:
-- Swagger UI: `http://localhost:8000/docs`
-- ReDoc: `http://localhost:8000/redoc`
-- OpenAPI JSON: `http://localhost:8000/openapi.json`
+### GET `/api/v1/warehouses`
+
+Query params: `page` (default 1), `per_page` (default 20, max 100)
+
+Returns active warehouses for the authenticated user's organization.
+
+### POST `/api/v1/warehouses`
+
+Required roles: `system_admin`, `org_admin`, `warehouse_manager`
+
+```json
+// Request
+{
+  "name": "East Coast DC",
+  "code": "WH-EC-001",
+  "city": "Boston",
+  "country": "US",
+  "latitude": 42.36,
+  "longitude": -71.06,
+  "capacity": 10000
+}
+```
+
+### GET `/api/v1/warehouses/{warehouse_id}`
+
+### PUT `/api/v1/warehouses/{warehouse_id}`
+
+All fields optional. Same shape as POST.
+
+### DELETE `/api/v1/warehouses/{warehouse_id}`
+
+Soft-delete (sets `is_active=false`). Required roles: `system_admin`, `org_admin`
+
+---
+
+## Products
+
+### GET `/api/v1/products`
+
+Query params: `page`, `per_page`
+
+### POST `/api/v1/products`
+
+Required roles: `system_admin`, `org_admin`, `inventory_manager`
+
+```json
+{
+  "name": "Widget A",
+  "sku": "WGT-A-001",
+  "category": "Electronics",
+  "unit": "unit",
+  "unit_cost": 50.0,
+  "unit_price": 79.99,
+  "reorder_point": 100.0,
+  "lead_time_days": 14
+}
+```
+
+### GET `/api/v1/products/{product_id}`
+
+### PUT `/api/v1/products/{product_id}`
+
+---
+
+## Inventory
+
+### GET `/api/v1/inventory`
+
+Lists all inventory items across all warehouses in the organization.
+
+### POST `/api/v1/inventory`
+
+Creates or updates (upsert) inventory for a product/warehouse pair.
+
+```json
+{
+  "product_id": "uuid",
+  "warehouse_id": "uuid",
+  "quantity_on_hand": 200.0,
+  "reorder_point": 25.0,
+  "safety_stock": 10.0
+}
+```
+
+### GET `/api/v1/inventory/{item_id}`
+
+### POST `/api/v1/inventory/{item_id}/adjust`
+
+```json
+{ "delta": 50.0 }   // positive = add, negative = remove
+```
+
+### GET `/api/v1/inventory/alerts/low-stock`
+
+Returns all inventory items where `quantity_available <= reorder_point`.
+
+---
+
+## Orders
+
+### GET `/api/v1/orders`
+
+Query params: `page`, `per_page`, `status` (optional filter)
+
+### POST `/api/v1/orders`
+
+```json
+{
+  "reference_number": "ORD-2026-001",
+  "priority": "normal",
+  "delivery_address": "123 Main Street, NYC",
+  "delivery_latitude": 40.71,
+  "delivery_longitude": -74.01,
+  "notes": "Fragile items",
+  "items": [
+    {
+      "product_id": "uuid",
+      "quantity": 10.0,
+      "unit_price": 79.99
+    }
+  ]
+}
+```
+
+### GET `/api/v1/orders/{order_id}`
+
+### PATCH `/api/v1/orders/{order_id}`
+
+```json
+{ "status": "confirmed" }
+```
+
+Valid statuses: `pending` → `confirmed` → `allocated` → `in_progress` → `shipped` → `delivered` | `cancelled`
+
+### POST `/api/v1/orders/{order_id}/allocate`
+
+Triggers AI warehouse allocation. Required roles: `system_admin`, `org_admin`, `operations_manager`
+
+```json
+// Response
+{
+  "success": true,
+  "data": {
+    "result_id": "uuid",
+    "order_id": "uuid",
+    "warehouse_id": "uuid",
+    "score": 0.87,
+    "coverage_percentage": 100.0,
+    "explanation": "Warehouse WH-EC-001 selected: 100% inventory coverage, proximity score 0.91."
+  }
+}
+```
+
+---
+
+## AI Insights
+
+### GET `/api/v1/ai/forecast/{product_id}`
+
+Returns demand forecast for the given product.
+
+### GET `/api/v1/ai/optimize/{product_id}`
+
+Returns inventory optimization recommendation (EOQ, safety stock, reorder point).
+
+---
+
+## Dashboard
+
+### GET `/api/v1/dashboard/summary`
+
+Returns aggregate KPIs:
+- Total orders (by status)
+- Low-stock item count
+- Active warehouses
+- Recent order activity
+
+---
+
+## Reports
+
+### GET `/api/v1/reports/inventory`
+
+Returns inventory summary per product and warehouse.
+
+---
+
+## System
+
+### GET `/health`
+
+Unauthenticated. Returns `{"status": "ok", "version": "1.0.0"}`.
+
+---
+
+## Error Codes
+
+| HTTP | Error Code | Meaning |
+|---|---|---|
+| 400 | `VALIDATION_ERROR` | Invalid input data |
+| 401 | `AUTHENTICATION_ERROR` | Missing or invalid token |
+| 403 | `AUTHORIZATION_ERROR` | Insufficient role |
+| 404 | `NOT_FOUND` | Resource does not exist |
+| 409 | `CONFLICT_ERROR` | Duplicate resource (e.g., same SKU) |
+| 422 | — | Pydantic validation failure (automatic) |
+| 500 | `INTERNAL_ERROR` | Unexpected server error |

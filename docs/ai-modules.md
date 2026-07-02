@@ -1,138 +1,150 @@
-# AI Modules Overview
-
-## Design Principles
-
-All AI modules follow these rules:
-1. **Zero database access** — modules receive data as input, return results as output
-2. **Pluggable via interface** — swap algorithms without touching business logic
-3. **Explainable outputs** — every result includes a human-readable reasoning field
-4. **Independent testability** — each module is unit-testable with mock data
+# AI Modules
 
 ---
 
-## Module 1: Warehouse Allocation Engine
+## Design Philosophy
 
-**Purpose**: Given an order, determine the optimal warehouse(s) to fulfill it.
+All AI modules in this platform are:
 
-**Input**: Order items with quantities, list of warehouses with current inventory
+1. **Independent** — no imports from `app/` layer; zero knowledge of HTTP or ORM
+2. **Pluggable** — each module implements a defined abstract interface
+3. **Explainable** — every result includes a human-readable explanation
+4. **Testable in isolation** — unit tests require no database or HTTP infrastructure
 
-**Algorithm (v1)**: Weighted scoring based on:
-- Available stock coverage (primary factor)
-- Warehouse capacity utilization
-- Distance/priority score
-
-**Output**:
-```json
-{
-  "order_id": "uuid",
-  "allocations": [
-    {
-      "warehouse_id": "uuid",
-      "warehouse_name": "Central Warehouse",
-      "items_covered": [...],
-      "coverage_percentage": 95.0,
-      "score": 0.87,
-      "explanation": "Selected based on 95% stock coverage and low utilization"
-    }
-  ],
-  "unallocated_items": []
-}
-```
-
-**Extension path**: Add cost matrix, time windows, vehicle constraints → Full VRP
+To swap an algorithm, change the concrete class in the service — no other code changes required.
 
 ---
 
-## Module 2: Demand Forecasting
+## Module Overview
 
-**Purpose**: Predict future demand for a product based on historical data.
-
-**Input**: Historical sales/order data (time series), forecast horizon
-
-**Algorithm (v1)**: Simple Moving Average over configurable window
-
-**Output**:
-```json
-{
-  "product_id": "uuid",
-  "forecast_periods": 30,
-  "predicted_demand": [
-    {"date": "2025-02-01", "quantity": 42.5, "confidence": 0.75}
-  ],
-  "method": "moving_average",
-  "window_size": 7,
-  "explanation": "Based on 7-day moving average of last 30 days of order data"
-}
-```
-
-**Extension path**: ARIMA → Prophet → LSTM without interface changes
+| Module | Interface | Implementation | Algorithm |
+|---|---|---|---|
+| Warehouse Allocation | `WarehouseAllocatorInterface` | `AllocationEngine` | Score-based: availability × capacity × proximity |
+| Demand Forecasting | `DemandForecasterInterface` | `MovingAverageForecaster` | Simple / weighted moving average |
+| Inventory Optimization | `InventoryOptimizerInterface` | `EOQOptimizer` | Economic Order Quantity + safety stock |
+| Route Optimization | `RouteOptimizerInterface` | `NearestNeighborRouter` | Nearest-neighbor greedy algorithm |
 
 ---
 
-## Module 3: Inventory Optimization
+## Warehouse Allocation Engine
 
-**Purpose**: Calculate optimal inventory levels to minimize cost while maintaining service level.
+**File:** `ai/warehouse_allocation/allocation_engine.py`
 
-**Input**: Historical demand data, lead time, holding cost, shortage cost, service level target
+**Problem:** Given an order with multiple product items, which warehouse should fulfill it?
 
-**Algorithm (v1)**: Economic Order Quantity (EOQ) with safety stock calculation
+**Algorithm:**
+1. For each active warehouse, compute a composite score:
+   - **Availability score** (0–1): what fraction of ordered quantities are available in this warehouse?
+   - **Capacity score** (0–1): current utilization relative to warehouse capacity
+   - **Proximity score** (0–1): inverse normalized haversine distance from delivery address
+2. Weighted sum: `score = 0.5 × availability + 0.3 × capacity + 0.2 × proximity`
+3. Select the highest-scoring warehouse
 
-**Output**:
-```json
-{
-  "product_id": "uuid",
-  "warehouse_id": "uuid",
-  "safety_stock": 150,
-  "reorder_point": 280,
-  "recommended_order_quantity": 500,
-  "expected_holding_cost": 1250.00,
-  "expected_shortage_risk": 0.05,
-  "explanation": "EOQ calculated at 500 units based on annual demand 6000, holding cost $2.50/unit/year"
-}
-```
+**Output includes:**
+- Selected `warehouse_id`
+- Composite `score`
+- `coverage_percentage` — percentage of order items that can be fulfilled
+- `explanation` — human-readable rationale
 
-**Extension path**: Stochastic demand models, multi-echelon optimization
+**Extensibility:** Replace `AllocationEngine` with a model that uses historical fulfillment data, SLA constraints, or cost optimization.
 
 ---
 
-## Module 4: Route Optimization
+## Demand Forecasting
 
-**Purpose**: Determine an efficient delivery sequence for a set of orders.
+**File:** `ai/demand_forecasting/moving_average.py`
 
-**Input**: List of delivery locations with coordinates, warehouse origin
+**Problem:** Given historical demand data for a product, forecast future demand.
 
-**Algorithm (v1)**: Nearest neighbor heuristic
+**Algorithm:**
+- Simple moving average over the last `window_size` periods (default: 7)
+- Window is clamped to the available data length
+- If no historical data is available, returns zero forecast with a low-confidence flag
 
-**Output**:
-```json
-{
-  "route_id": "uuid",
-  "stops": [
-    {"order_id": "uuid", "sequence": 1, "location": {...}, "estimated_arrival": "..."}
-  ],
-  "total_distance_km": 125.4,
-  "estimated_duration_minutes": 180,
-  "explanation": "Nearest-neighbor route minimizing total travel distance"
-}
-```
+**Output includes:**
+- `forecast_values` — list of predicted demand values per period
+- `method` — algorithm identifier
+- `confidence` — estimate based on data variance
+- `explanation` — human-readable description
 
-**Extension path**: 2-opt improvement → Christofides → VRP with capacity constraints
+**Extensibility:** Replace with ARIMA, Facebook Prophet, or an LSTM model by implementing `DemandForecasterInterface`.
 
 ---
 
-## Interface Contract
+## Inventory Optimizer (EOQ)
 
-Every AI module implements its base interface:
+**File:** `ai/inventory_optimization/eoq_optimizer.py`
+
+**Problem:** Given a product's demand and costs, what is the optimal order quantity and reorder point?
+
+**Algorithm:**
+- **Economic Order Quantity (EOQ):** `EOQ = sqrt(2 × D × S / H)` where:
+  - D = annual demand
+  - S = order cost (setup/ordering cost)
+  - H = annual holding cost per unit
+- **Safety Stock:** `safety_stock = z × σ_d × sqrt(L)` where:
+  - z = service level z-score (lookup table, no scipy dependency)
+  - σ_d = demand standard deviation
+  - L = lead time in days
+- **Reorder Point:** `ROP = (daily_demand × lead_time) + safety_stock`
+
+**Output includes:**
+- `recommended_order_quantity` (EOQ)
+- `safety_stock`
+- `reorder_point`
+- `expected_holding_cost`
+- `expected_shortage_risk`
+- `explanation`
+
+**Extensibility:** Replace with stochastic or simulation-based optimization by implementing `InventoryOptimizerInterface`.
+
+---
+
+## Route Optimizer
+
+**File:** `ai/route_optimization/basic_router.py`
+
+**Problem:** Given a depot and a list of delivery stops, find an efficient route.
+
+**Algorithm:**
+- Nearest-neighbor greedy heuristic
+- Starting from the depot, always move to the closest unvisited stop (haversine distance)
+- Returns the ordered stop sequence, total distance, and estimated duration
+
+**Output includes:**
+- `route` — ordered list of stop coordinates and labels
+- `total_distance_km`
+- `estimated_duration_minutes`
+- `explanation`
+
+**Extensibility:** Replace with Clarke-Wright savings, simulated annealing, or a VRP solver by implementing `RouteOptimizerInterface`.
+
+---
+
+## Interfaces
+
+All interfaces are defined in `ai/interfaces/`:
 
 ```python
-class BaseForecaster(ABC):
+class WarehouseAllocatorInterface(ABC):
     @abstractmethod
-    def predict(self, input_data: ForecastInput) -> ForecastOutput:
-        """Generate demand forecast."""
+    def allocate(self, order: AllocationRequest, warehouses: List[WarehouseOption]) -> AllocationResult:
+        ...
+
+class DemandForecasterInterface(ABC):
+    @abstractmethod
+    def forecast(self, request: ForecastRequest) -> ForecastResult:
+        ...
+
+class InventoryOptimizerInterface(ABC):
+    @abstractmethod
+    def optimize(self, request: OptimizationRequest) -> OptimizationResult:
+        ...
+
+class RouteOptimizerInterface(ABC):
+    @abstractmethod
+    def optimize_route(self, request: RouteRequest) -> RouteResult:
         ...
 ```
 
-Services call modules only through these interfaces. This ensures:
-- New algorithms can be added without modifying service code
-- Modules can be tested with mock implementations
-- A/B testing between algorithm versions is straightforward
+AI schemas (input/output data classes) are defined in `ai/schemas/ai_schemas.py` — fully decoupled from ORM models.

@@ -1,181 +1,160 @@
 # Development Guide
 
+---
+
 ## Prerequisites
 
-| Tool | Version | Purpose |
-|------|---------|---------|
-| Python | 3.11+ | Backend runtime |
-| PostgreSQL | 15+ | Primary database |
-| Git | 2.x+ | Version control |
-| Docker | 24+ | Containerization (optional) |
+| Tool | Minimum Version |
+|---|---|
+| Python | 3.9 |
+| PostgreSQL | 15 (or use Docker) |
+| Git | 2.x |
 
 ---
 
 ## Local Setup
 
-### 1. Clone and Navigate
-
 ```bash
+# 1. Clone the repository
 git clone https://github.com/azimilab2025-ai/IBM-Bob-Challenge-2026.git
 cd IBM-Bob-Challenge-2026
-```
 
-### 2. Configure Environment
-
-```bash
+# 2. Configure environment
 cp .env.example .env
-# Edit .env — set DATABASE_URL and SECRET_KEY at minimum
-```
+# Edit .env — at minimum set DATABASE_URL and SECRET_KEY
 
-### 3. Backend Setup
-
-```bash
+# 3. Create virtual environment
 cd backend
-python -m venv .venv
-source .venv/bin/activate          # Windows: .venv\Scripts\activate
+python3 -m venv .venv
+source .venv/bin/activate     # Windows: .venv\Scripts\activate
+
+# 4. Install production and development dependencies
 pip install -r requirements.txt
 pip install -r requirements-dev.txt
-```
 
-### 4. Database Setup
-
-```bash
-# Ensure PostgreSQL is running, then:
+# 5. Run database migrations
 alembic upgrade head
 
-# Seed initial data
-cd ..
-python scripts/seed_data.py
-```
+# 6. Seed initial data (first run only)
+python ../scripts/seed_data.py
 
-### 5. Run Development Server
-
-```bash
-cd backend
+# 7. Start the development server
 uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 ```
 
-Access:
-- API: `http://localhost:8000`
-- Swagger: `http://localhost:8000/docs`
-- ReDoc: `http://localhost:8000/redoc`
-
 ---
 
-## Development Workflow
+## Environment Variables
 
-### Branch Strategy
+Copy `.env.example` to `.env` and fill in the required values:
 
-All development happens on `main` in this challenge context.
-Each logical phase is committed independently.
-
-### Commit Convention
-
-```
-<type>: <short description>
-
-Types: feat, fix, refactor, test, docs, chore
-Examples:
-  feat: implement warehouse allocation service
-  fix: correct inventory quantity validation
-  docs: update API documentation
-  test: add order service unit tests
+```env
+DATABASE_URL=postgresql://postgres:postgres@localhost:5432/supplychain
+SECRET_KEY=your-secret-key-at-least-32-chars-long
+APP_ENV=development
+DEBUG=true
 ```
 
-### Adding a New Feature
-
-1. Create/update the **Model** in `backend/app/models/`
-2. Generate a **Migration**: `alembic revision --autogenerate -m "description"`
-3. Create/update **Schema** in `backend/app/schemas/`
-4. Implement **Repository** method in `backend/app/repositories/`
-5. Implement **Service** method in `backend/app/services/`
-6. Add **Router** endpoint in `backend/app/api/v1/routers/`
-7. Write **Tests** in `backend/tests/`
-8. Run tests: `pytest`
-9. Commit
-
----
-
-## Code Standards
-
-### Python
-
-- PEP 8 compliance
-- Type hints on all function signatures
-- Docstrings on all public methods
-- No `print()` — use structured logging
-- No secrets in code
-
-### Layering Rules
-
-| Layer | Can call | Cannot call |
-|-------|----------|-------------|
-| Router | Service, Schemas | Repository, Models directly |
-| Service | Repository, AI modules | Router |
-| Repository | Models, DB session | Service, Router |
-| AI Module | AI schemas only | Repository, Service, Models |
-
-### Error Handling
-
-All errors bubble up via custom exceptions defined in `core/exceptions.py`.
-Routers catch exceptions and return standardized error responses.
-Never swallow exceptions silently.
-
----
-
-## Database Migrations
-
-```bash
-# Create a new migration after model changes
-alembic revision --autogenerate -m "add shipment table"
-
-# Apply all pending migrations
-alembic upgrade head
-
-# Downgrade one step
-alembic downgrade -1
-
-# View migration history
-alembic history
-```
-
-**Rule**: Never modify an already-applied migration. Always create a new one.
+See [Environment Variables](environment-variables.md) for a full reference.
 
 ---
 
 ## Running Tests
 
 ```bash
-cd backend
+# All tests (no database required — uses SQLite in-memory)
+pytest -v
 
-# All tests
-pytest
+# Specific subset
+pytest tests/unit/ -v
+pytest tests/api/ -v
 
 # With coverage
-pytest --cov=app --cov-report=html
+pytest --cov=app --cov=ai --cov-report=term-missing
+```
 
-# Specific module
-pytest tests/unit/test_inventory_service.py -v
+The test suite requires no live database. See [Testing Guide](testing-guide.md) for details.
 
-# API tests only
-pytest tests/api/ -v
+---
+
+## Database Migrations
+
+```bash
+# Apply all pending migrations
+alembic upgrade head
+
+# Check current state
+alembic current
+
+# View migration history
+alembic history
+
+# Create a new migration (after changing models)
+alembic revision --autogenerate -m "describe_your_change"
+
+# Downgrade one step
+alembic downgrade -1
 ```
 
 ---
 
-## Environment Variables Reference
+## Code Organization
 
-See [environment-variables.md](environment-variables.md) for complete documentation.
+```
+backend/app/
+├── api/v1/routers/   → One file per resource. Only routing + serialization.
+├── core/             → Config, security, exceptions, logging, dependencies.
+├── db/               → Base declarative, UUIDType, session factory.
+├── models/           → SQLAlchemy ORM models. Computed properties allowed.
+├── schemas/          → Pydantic schemas. Separate Create/Update/Response per resource.
+├── repositories/     → All SQL queries. No business logic. Return ORM objects.
+└── services/         → All business logic. Orchestrate repos + AI. Control transactions.
+```
+
+**Non-negotiable rules:**
+- Routers never contain `if` business logic
+- Services never write SQL directly — use repositories
+- Repositories never import services
+- AI modules never import from `app/`
 
 ---
 
-## Adding an AI Module
+## Adding a New Resource
 
-1. Define input/output schema in `backend/ai/schemas/ai_schemas.py`
-2. Create abstract interface in `backend/ai/interfaces/`
-3. Implement algorithm in the corresponding module directory
-4. Register module in the service that consumes it
-5. Write unit tests
-6. Document in [ai-modules.md](ai-modules.md)
+1. Add the ORM model to `app/models/` — inherit from `Base, BaseModel`
+2. Add migration: `alembic revision --autogenerate -m "add_<resource>"`
+3. Add Pydantic schemas to `app/schemas/`
+4. Add a repository to `app/repositories/` inheriting from `BaseRepository`
+5. Add a service to `app/services/` — inject the repository
+6. Add a router to `app/api/v1/routers/` — register in `main.py`
+7. Add tests to `tests/api/test_<resource>_api.py`
 
-The new module must NOT import from `app/` (no DB access, no service calls).
+---
+
+## Commit Message Convention
+
+```
+<type>(<scope>): <short description>
+
+Types: feat, fix, refactor, test, docs, chore
+Scope: phase-N, auth, inventory, ai, etc.
+
+Examples:
+feat(inventory): add low-stock alert endpoint
+fix(auth): correct token expiry calculation
+test(api): add warehouse deactivation test
+docs(readme): update v1 status checklist
+```
+
+---
+
+## Project Conventions
+
+| Convention | Rule |
+|---|---|
+| Language | All code, comments, variables, and docs in English |
+| UUID | Always use `UUIDType` from `app.db.types` — never `postgresql.UUID` directly |
+| Error handling | Always raise a domain exception (`NotFoundError`, etc.) — never return None silently |
+| Transactions | Services own transactions — routers call `db.commit()` after service returns |
+| Secrets | Never hardcode secrets — always use `get_settings()` |
+| Imports | Avoid circular imports — use `TYPE_CHECKING` for type hints between models |
