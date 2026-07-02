@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Settings — Supply Chain AI</title>
+  <link rel="stylesheet" href="../css/main.css">
+</head>
+<body>
+<div class="app-layout">
+  <div id="sidebar-placeholder"></div>
+  <div class="main-content">
+    <header class="top-bar">
+      <span class="page-title">Settings</span>
+      <div class="user-info">
+        <span id="user-role" class="user-badge"></span>
+        <span id="user-name" class="text-sm fw-600"></span>
+        <button class="btn-logout" onclick="logout()">Sign Out</button>
+      </div>
+    </header>
+    <main class="page-body">
+      <div class="page-header">
+        <h1 class="page-heading">Settings</h1>
+      </div>
+
+      <div class="grid-2">
+        <!-- Profile -->
+        <div class="card">
+          <div class="card-title" style="margin-bottom:16px">Account Profile</div>
+          <div id="profile-content">
+            <div class="form-group">
+              <label class="form-label">Full Name</label>
+              <div class="form-control" style="background:var(--color-bg);cursor:default;" id="s-name">—</div>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Email</label>
+              <div class="form-control" style="background:var(--color-bg);cursor:default;" id="s-email">—</div>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Role</label>
+              <div id="s-role">—</div>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Organization ID</label>
+              <div class="form-control" style="background:var(--color-bg);cursor:default;font-size:0.80rem;" id="s-org">—</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- System Health -->
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title">System Health</div>
+            <button class="btn btn-secondary btn-sm" onclick="checkHealth()">Check</button>
+          </div>
+          <div id="health-content">
+            <div class="empty-state"><div class="empty-state-text">Click Check to verify API status</div></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- About -->
+      <div class="card" style="margin-top:20px;">
+        <div class="card-title" style="margin-bottom:12px">About</div>
+        <table style="font-size:0.86rem;width:auto;">
+          <tr><td style="padding:4px 16px 4px 0;color:var(--color-muted);font-weight:500;">Platform</td><td>Supply Chain AI Optimization Platform</td></tr>
+          <tr><td style="padding:4px 16px 4px 0;color:var(--color-muted);font-weight:500;">Version</td><td>1.0.0</td></tr>
+          <tr><td style="padding:4px 16px 4px 0;color:var(--color-muted);font-weight:500;">Built With</td><td>FastAPI · PostgreSQL · Python 3.9 · IBM Bob</td></tr>
+          <tr><td style="padding:4px 16px 4px 0;color:var(--color-muted);font-weight:500;">Challenge</td><td>IBM TechXChange Challenge 2026</td></tr>
+          <tr><td style="padding:4px 16px 4px 0;color:var(--color-muted);font-weight:500;">API Docs</td><td><a href="http://localhost:8000/docs" target="_blank" style="color:var(--color-accent)">http://localhost:8000/docs</a></td></tr>
+        </table>
+      </div>
+    </main>
+  </div>
+</div>
+
+<script src="../js/auth.js"></script>
+<script src="../js/api.js"></script>
+<script src="../js/utils.js"></script>
+<script src="../components/common/sidebar.js"></script>
+<script>
+  if (!auth.requireAuth()) throw new Error('redirect');
+  renderSidebar('settings');
+  renderUserBar();
+
+  // Populate profile from stored user
+  const user = auth.getUser();
+  if (user) {
+    document.getElementById('s-name').textContent  = user.full_name || '—';
+    document.getElementById('s-email').textContent = user.email || '—';
+    document.getElementById('s-role').innerHTML    = user.role ? `<span class="badge badge-active">${user.role.replace(/_/g,' ')}</span>` : '—';
+    document.getElementById('s-org').textContent   = user.organization_id || '—';
+  }
+
+  async function checkHealth() {
+    const el = document.getElementById('health-content');
+    el.innerHTML = '<div class="text-muted text-sm" style="padding:12px">Checking…</div>';
+    try {
+      const h = await api.health();
+      const statusColor = h.status === 'healthy' ? 'var(--color-success)' : 'var(--color-warning)';
+      const dbColor     = h.database === 'connected' ? 'var(--color-success)' : 'var(--color-danger)';
+      el.innerHTML = `
+        <div style="display:grid;gap:10px;padding:4px 0;">
+          <div style="display:flex;justify-content:space-between;font-size:0.86rem;">
+            <span class="text-muted">API Status</span>
+            <strong style="color:${statusColor}">${h.status?.toUpperCase()}</strong>
+          </div>
+          <div style="display:flex;justify-content:space-between;font-size:0.86rem;">
+            <span class="text-muted">Database</span>
+            <strong style="color:${dbColor}">${h.database?.toUpperCase()}</strong>
+          </div>
+          <div style="display:flex;justify-content:space-between;font-size:0.86rem;">
+            <span class="text-muted">Version</span>
+            <span>${h.version}</span>
+          </div>
+          <div style="display:flex;justify-content:space-between;font-size:0.86rem;">
+            <span class="text-muted">Environment</span>
+            <span>${h.environment}</span>
+          </div>
+          <div style="font-size:0.76rem;color:var(--color-muted);margin-top:4px;">${fmt.datetime(h.timestamp)}</div>
+        </div>`;
+    } catch (err) {
+      el.innerHTML = `<div class="alert alert-danger">API unreachable: ${err.message}</div>`;
+    }
+  }
+
+  function logout() { auth.clear(); window.location.href = 'login.html'; }
+</script>
+</body>
+</html>

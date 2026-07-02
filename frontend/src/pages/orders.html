@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Orders — Supply Chain AI</title>
+  <link rel="stylesheet" href="../css/main.css">
+</head>
+<body>
+<div class="app-layout">
+  <div id="sidebar-placeholder"></div>
+  <div class="main-content">
+    <header class="top-bar">
+      <span class="page-title">Orders</span>
+      <div class="user-info">
+        <span id="user-role" class="user-badge"></span>
+        <span id="user-name" class="text-sm fw-600"></span>
+        <button class="btn-logout" onclick="logout()">Sign Out</button>
+      </div>
+    </header>
+    <main class="page-body">
+      <div class="page-header">
+        <h1 class="page-heading">Order Management</h1>
+        <button class="btn btn-primary" onclick="openCreateModal()">+ New Order</button>
+      </div>
+
+      <!-- Filter Bar -->
+      <div class="card" style="margin-bottom:16px;padding:14px 20px;">
+        <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;">
+          <label class="form-label" style="margin:0">Filter by status:</label>
+          <select class="form-control" id="status-filter" style="width:auto" onchange="loadOrders(1)">
+            <option value="">All</option>
+            <option value="pending">Pending</option>
+            <option value="confirmed">Confirmed</option>
+            <option value="allocated">Allocated</option>
+            <option value="in_progress">In Progress</option>
+            <option value="shipped">Shipped</option>
+            <option value="delivered">Delivered</option>
+            <option value="cancelled">Cancelled</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="table-container">
+          <table>
+            <thead>
+              <tr><th>Reference</th><th>Status</th><th>Priority</th><th>Amount</th><th>Delivery</th><th>Created</th><th>Actions</th></tr>
+            </thead>
+            <tbody id="orders-tbody">
+              <tr><td colspan="7" style="text-align:center;padding:30px;color:var(--color-muted)">Loading…</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="pagination" id="orders-pagination"></div>
+      </div>
+    </main>
+  </div>
+</div>
+
+<!-- Create Order Modal -->
+<div class="modal-overlay hidden" id="order-modal">
+  <div class="modal" style="max-width:580px">
+    <div class="modal-header">
+      <span class="modal-title">New Order</span>
+      <button class="modal-close" onclick="closeModal('order-modal')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div id="order-error" class="alert alert-danger hidden"></div>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Reference Number *</label>
+          <input class="form-control" id="o-ref" placeholder="ORD-2025-001">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Priority</label>
+          <select class="form-control" id="o-priority">
+            <option value="low">Low</option>
+            <option value="normal" selected>Normal</option>
+            <option value="high">High</option>
+            <option value="urgent">Urgent</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Delivery Address</label>
+        <input class="form-control" id="o-address" placeholder="123 Main St, New York, NY">
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Delivery Latitude</label>
+          <input class="form-control" id="o-lat" type="number" step="any" placeholder="40.7128">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Delivery Longitude</label>
+          <input class="form-control" id="o-lon" type="number" step="any" placeholder="-74.0060">
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Notes</label>
+        <textarea class="form-control" id="o-notes" rows="2" placeholder="Optional notes"></textarea>
+      </div>
+      <div style="border-top:1px solid var(--color-border);margin:16px 0;padding-top:16px;">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
+          <div class="card-title">Order Items</div>
+          <button class="btn btn-secondary btn-sm" onclick="addItemRow()">+ Add Item</button>
+        </div>
+        <div id="items-container">
+          <div class="item-row form-row" style="margin-bottom:8px;">
+            <div class="form-group"><label class="form-label">Product ID *</label><input class="form-control item-product" placeholder="UUID"></div>
+            <div class="form-group"><label class="form-label">Qty *</label><input class="form-control item-qty" type="number" min="0.01" step="any" placeholder="10"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('order-modal')">Cancel</button>
+      <button class="btn btn-primary" id="order-save-btn" onclick="saveOrder()">Create Order</button>
+    </div>
+  </div>
+</div>
+
+<script src="../js/auth.js"></script>
+<script src="../js/api.js"></script>
+<script src="../js/utils.js"></script>
+<script src="../components/common/sidebar.js"></script>
+<script>
+  if (!auth.requireAuth()) throw new Error('redirect');
+  renderSidebar('orders');
+  renderUserBar();
+
+  let currentPage = 1;
+
+  async function loadOrders(page = 1) {
+    currentPage = page;
+    const status = document.getElementById('status-filter').value;
+    try {
+      const res   = await api.getOrders(page, 20, status);
+      const tbody = document.getElementById('orders-tbody');
+      if (!res.data || res.data.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="7">${emptyState('No orders found')}</td></tr>`;
+      } else {
+        tbody.innerHTML = res.data.map(o => `
+          <tr>
+            <td class="fw-600">${o.reference_number}</td>
+            <td>${badge(o.status)}</td>
+            <td>${badge(o.priority)}</td>
+            <td>${fmt.currency(o.total_amount)}</td>
+            <td class="text-sm text-muted">${o.delivery_address ? o.delivery_address.slice(0, 30) + '…' : '—'}</td>
+            <td class="text-muted text-sm">${fmt.date(o.created_at)}</td>
+            <td style="display:flex;gap:6px;">
+              <button class="btn btn-secondary btn-sm" onclick="viewOrder('${o.id}')">View</button>
+              ${o.status === 'pending' ? `<button class="btn btn-primary btn-sm" onclick="allocate('${o.id}')">✦ Allocate</button>` : ''}
+            </td>
+          </tr>`).join('');
+      }
+      renderPagination('orders-pagination', res.meta, 'loadOrders');
+    } catch (err) { toast.error('Failed to load orders: ' + err.message); }
+  }
+
+  function openCreateModal() {
+    ['o-ref','o-address','o-lat','o-lon','o-notes'].forEach(id => document.getElementById(id).value = '');
+    document.getElementById('o-priority').value = 'normal';
+    document.getElementById('items-container').innerHTML = `
+      <div class="item-row form-row" style="margin-bottom:8px;">
+        <div class="form-group"><label class="form-label">Product ID *</label><input class="form-control item-product" placeholder="UUID"></div>
+        <div class="form-group"><label class="form-label">Qty *</label><input class="form-control item-qty" type="number" min="0.01" step="any" placeholder="10"></div>
+      </div>`;
+    document.getElementById('order-error').classList.add('hidden');
+    openModal('order-modal');
+  }
+
+  function addItemRow() {
+    const row = document.createElement('div');
+    row.className = 'item-row form-row';
+    row.style.marginBottom = '8px';
+    row.innerHTML = `
+      <div class="form-group"><input class="form-control item-product" placeholder="Product UUID"></div>
+      <div class="form-group" style="display:flex;gap:8px;"><input class="form-control item-qty" type="number" min="0.01" step="any" placeholder="Qty"><button class="btn btn-danger btn-sm" onclick="this.closest('.item-row').remove()">✕</button></div>`;
+    document.getElementById('items-container').appendChild(row);
+  }
+
+  async function saveOrder() {
+    const btn   = document.getElementById('order-save-btn');
+    const errEl = document.getElementById('order-error');
+    const ref   = document.getElementById('o-ref').value.trim();
+    if (!ref) { errEl.textContent = 'Reference number is required.'; errEl.classList.remove('hidden'); return; }
+
+    const items = [];
+    document.querySelectorAll('.item-row').forEach(row => {
+      const pid = row.querySelector('.item-product').value.trim();
+      const qty = parseFloat(row.querySelector('.item-qty').value);
+      if (pid && qty > 0) items.push({ product_id: pid, quantity: qty });
+    });
+    if (items.length === 0) { errEl.textContent = 'Add at least one order item.'; errEl.classList.remove('hidden'); return; }
+
+    const payload = {
+      reference_number: ref,
+      priority:  document.getElementById('o-priority').value,
+      delivery_address:  document.getElementById('o-address').value.trim() || null,
+      delivery_latitude: parseFloat(document.getElementById('o-lat').value) || null,
+      delivery_longitude:parseFloat(document.getElementById('o-lon').value) || null,
+      notes: document.getElementById('o-notes').value.trim() || null,
+      items,
+    };
+
+    setLoading(btn, true); errEl.classList.add('hidden');
+    try {
+      await api.createOrder(payload);
+      toast.success('Order created');
+      closeModal('order-modal');
+      loadOrders(1);
+    } catch (err) {
+      errEl.textContent = err.message; errEl.classList.remove('hidden');
+    } finally { setLoading(btn, false); }
+  }
+
+  async function allocate(orderId) {
+    try {
+      const res = await api.allocateOrder(orderId);
+      toast.success(`Allocated to: ${res.data.explanation.split('\'')[1] || 'warehouse'} (score: ${res.data.score})`);
+      loadOrders(currentPage);
+    } catch (err) { toast.error('Allocation failed: ' + err.message); }
+  }
+
+  async function viewOrder(id) {
+    try {
+      const res = await api.getOrder(id);
+      const o   = res.data;
+      toast.info(`Order ${o.reference_number}: ${o.items.length} item(s), status: ${o.status}`);
+    } catch (err) { toast.error(err.message); }
+  }
+
+  function logout() { auth.clear(); window.location.href = 'login.html'; }
+  loadOrders();
+</script>
+</body>
+</html>

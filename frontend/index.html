@@ -1,0 +1,18 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="refresh" content="0; url=src/pages/login.html">
+  <title>Supply Chain AI</title>
+</head>
+<body>
+  <script src="src/js/auth.js"></script>
+  <script>
+    if (auth.isAuthenticated()) {
+      window.location.href = 'src/pages/dashboard.html';
+    } else {
+      window.location.href = 'src/pages/login.html';
+    }
+  </script>
+</body>
+</html>

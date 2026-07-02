@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Reports — Supply Chain AI</title>
+  <link rel="stylesheet" href="../css/main.css">
+</head>
+<body>
+<div class="app-layout">
+  <div id="sidebar-placeholder"></div>
+  <div class="main-content">
+    <header class="top-bar">
+      <span class="page-title">Reports</span>
+      <div class="user-info">
+        <span id="user-role" class="user-badge"></span>
+        <span id="user-name" class="text-sm fw-600"></span>
+        <button class="btn-logout" onclick="logout()">Sign Out</button>
+      </div>
+    </header>
+    <main class="page-body">
+      <div class="page-header">
+        <h1 class="page-heading">Management Reports</h1>
+        <button class="btn btn-secondary" onclick="loadAll()">↻ Refresh All</button>
+      </div>
+
+      <div class="grid-2" style="margin-bottom:20px;">
+        <!-- Inventory Report -->
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title">Inventory Report</div>
+            <button class="btn btn-secondary btn-sm" onclick="loadInventoryReport()">Load</button>
+          </div>
+          <div id="inv-report-content">
+            <div class="empty-state"><div class="empty-state-text">Click Load to generate</div></div>
+          </div>
+        </div>
+
+        <!-- Orders Report -->
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title">Orders Report</div>
+            <button class="btn btn-secondary btn-sm" onclick="loadOrdersReport()">Load</button>
+          </div>
+          <div id="orders-report-content">
+            <div class="empty-state"><div class="empty-state-text">Click Load to generate</div></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Forecasts Report -->
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">Recent Demand Forecasts</div>
+          <button class="btn btn-secondary btn-sm" onclick="loadForecastsReport()">Load</button>
+        </div>
+        <div id="forecasts-report-content">
+          <div class="empty-state"><div class="empty-state-text">Click Load to generate</div></div>
+        </div>
+      </div>
+    </main>
+  </div>
+</div>
+
+<script src="../js/auth.js"></script>
+<script src="../js/api.js"></script>
+<script src="../js/utils.js"></script>
+<script src="../components/common/sidebar.js"></script>
+<script>
+  if (!auth.requireAuth()) throw new Error('redirect');
+  renderSidebar('reports');
+  renderUserBar();
+
+  async function loadInventoryReport() {
+    const el = document.getElementById('inv-report-content');
+    el.innerHTML = '<div class="text-muted text-sm" style="padding:12px">Loading…</div>';
+    try {
+      const res = await api.inventoryReport();
+      const d   = res.data;
+      el.innerHTML = `
+        <div class="kpi-grid" style="margin-bottom:16px;">
+          <div class="kpi-card"><div class="kpi-label">Total Value</div><div class="kpi-value kpi-success">${fmt.currency(d.summary.total_inventory_value)}</div></div>
+          <div class="kpi-card"><div class="kpi-label">Total Qty</div><div class="kpi-value">${fmt.number(d.summary.total_quantity)}</div></div>
+          <div class="kpi-card kpi-danger"><div class="kpi-label">Low Stock</div><div class="kpi-value">${d.summary.low_stock_items}</div></div>
+          <div class="kpi-card"><div class="kpi-label">Warehouses</div><div class="kpi-value">${d.summary.warehouses_count}</div></div>
+        </div>
+        <div class="table-container">
+          <table>
+            <thead><tr><th>Warehouse</th><th>Code</th><th>Products</th><th>Total Qty</th><th>Value</th></tr></thead>
+            <tbody>${d.by_warehouse.map(w => `
+              <tr>
+                <td class="fw-600">${w.warehouse_name}</td>
+                <td><code>${w.warehouse_code}</code></td>
+                <td>${fmt.number(w.product_count)}</td>
+                <td>${fmt.decimal(w.total_quantity)}</td>
+                <td>${fmt.currency(w.total_value)}</td>
+              </tr>`).join('')}
+            </tbody>
+          </table>
+        </div>`;
+    } catch (err) {
+      el.innerHTML = `<div class="alert alert-danger">${err.message}</div>`;
+    }
+  }
+
+  async function loadOrdersReport() {
+    const el = document.getElementById('orders-report-content');
+    el.innerHTML = '<div class="text-muted text-sm" style="padding:12px">Loading…</div>';
+    try {
+      const res = await api.ordersReport();
+      const d   = res.data;
+      const statuses = Object.entries(d.by_status);
+      el.innerHTML = `
+        <div class="kpi-grid" style="margin-bottom:16px;">
+          <div class="kpi-card"><div class="kpi-label">Total Orders</div><div class="kpi-value">${fmt.number(d.total_orders)}</div></div>
+          <div class="kpi-card kpi-success"><div class="kpi-label">Completion Rate</div><div class="kpi-value">${fmt.percent(d.completion_rate)}</div></div>
+        </div>
+        <div class="table-container">
+          <table>
+            <thead><tr><th>Status</th><th>Count</th><th>Share</th></tr></thead>
+            <tbody>${statuses.map(([status, count]) => `
+              <tr>
+                <td>${badge(status)}</td>
+                <td class="fw-600">${fmt.number(count)}</td>
+                <td class="text-muted">${d.total_orders > 0 ? fmt.percent(count / d.total_orders * 100) : '—'}</td>
+              </tr>`).join('')}
+            </tbody>
+          </table>
+        </div>`;
+    } catch (err) {
+      el.innerHTML = `<div class="alert alert-danger">${err.message}</div>`;
+    }
+  }
+
+  async function loadForecastsReport() {
+    const el = document.getElementById('forecasts-report-content');
+    el.innerHTML = '<div class="text-muted text-sm" style="padding:12px">Loading…</div>';
+    try {
+      const res = await api.forecastsReport();
+      const forecasts = res.data.forecasts;
+      if (!forecasts || forecasts.length === 0) {
+        el.innerHTML = emptyState('No forecasts generated yet. Use AI Insights to create forecasts.');
+        return;
+      }
+      el.innerHTML = `
+        <div class="table-container">
+          <table>
+            <thead><tr><th>Product</th><th>Method</th><th>Horizon (days)</th><th>Generated</th></tr></thead>
+            <tbody>${forecasts.map(f => `
+              <tr>
+                <td class="fw-600">${f.product_name}</td>
+                <td><code>${f.method}</code></td>
+                <td>${f.horizon_days}</td>
+                <td class="text-muted">${fmt.datetime(f.generated_at)}</td>
+              </tr>`).join('')}
+            </tbody>
+          </table>
+        </div>`;
+    } catch (err) {
+      el.innerHTML = `<div class="alert alert-danger">${err.message}</div>`;
+    }
+  }
+
+  function loadAll() {
+    loadInventoryReport();
+    loadOrdersReport();
+    loadForecastsReport();
+  }
+
+  function logout() { auth.clear(); window.location.href = 'login.html'; }
+  loadAll();
+</script>
+</body>
+</html>

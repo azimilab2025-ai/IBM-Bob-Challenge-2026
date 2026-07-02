@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Login — Supply Chain AI</title>
+  <link rel="stylesheet" href="../css/main.css">
+</head>
+<body>
+<div class="login-page">
+  <div class="login-card">
+    <div class="login-logo">
+      <div style="font-size:2.2rem;">◈</div>
+      <h1>Supply Chain AI</h1>
+      <p>Enterprise Supply Chain Optimization Platform</p>
+    </div>
+
+    <div id="login-error" class="alert alert-danger hidden"></div>
+
+    <form id="login-form">
+      <div class="form-group">
+        <label class="form-label" for="email">Email Address</label>
+        <input class="form-control" type="email" id="email" placeholder="admin@example.com" required autocomplete="username">
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="password">Password</label>
+        <input class="form-control" type="password" id="password" placeholder="••••••••" required autocomplete="current-password">
+      </div>
+      <button class="btn btn-primary" type="submit" id="login-btn" style="width:100%;margin-top:8px;justify-content:center;">
+        Sign In
+      </button>
+    </form>
+
+    <p class="text-muted text-sm" style="text-align:center;margin-top:20px;">
+      AI-Powered Supply Chain Optimization
+    </p>
+  </div>
+</div>
+
+<script src="../js/auth.js"></script>
+<script src="../js/api.js"></script>
+<script src="../js/utils.js"></script>
+<script>
+  auth.redirectIfAuthenticated();
+
+  document.getElementById('login-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const btn = document.getElementById('login-btn');
+    const errEl = document.getElementById('login-error');
+    errEl.classList.add('hidden');
+    setLoading(btn, true);
+
+    try {
+      const email    = document.getElementById('email').value.trim();
+      const password = document.getElementById('password').value;
+
+      const res = await api.login(email, password);
+      auth.setTokens(res.data.access_token, res.data.refresh_token);
+
+      const profile = await api.me();
+      auth.setUser(profile.data);
+
+      window.location.href = 'dashboard.html';
+    } catch (err) {
+      errEl.textContent = err.message || 'Login failed. Check your credentials.';
+      errEl.classList.remove('hidden');
+      setLoading(btn, false);
+    }
+  });
+</script>
+</body>
+</html>

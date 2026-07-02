@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dashboard — Supply Chain AI</title>
+  <link rel="stylesheet" href="../css/main.css">
+</head>
+<body>
+<div class="app-layout">
+  <div id="sidebar-placeholder"></div>
+
+  <div class="main-content">
+    <header class="top-bar">
+      <span class="page-title">Dashboard</span>
+      <div class="user-info">
+        <span id="user-role" class="user-badge"></span>
+        <span id="user-name" class="text-sm fw-600"></span>
+        <button class="btn-logout" onclick="logout()">Sign Out</button>
+      </div>
+    </header>
+
+    <main class="page-body">
+      <div class="page-header">
+        <h1 class="page-heading">Operations Overview</h1>
+        <button class="btn btn-secondary btn-sm" onclick="loadDashboard()">↻ Refresh</button>
+      </div>
+
+      <!-- Alerts -->
+      <div id="alerts-container"></div>
+
+      <!-- KPI Cards -->
+      <div class="kpi-grid" id="kpi-grid">
+        <div class="kpi-card"><div class="kpi-label">Total Warehouses</div><div class="kpi-value" id="kpi-warehouses">—</div></div>
+        <div class="kpi-card"><div class="kpi-label">Total Products</div><div class="kpi-value" id="kpi-products">—</div></div>
+        <div class="kpi-card kpi-accent"><div class="kpi-label">Total Orders</div><div class="kpi-value" id="kpi-orders">—</div></div>
+        <div class="kpi-card kpi-warning"><div class="kpi-label">Pending Orders</div><div class="kpi-value" id="kpi-pending">—</div></div>
+        <div class="kpi-card kpi-danger"><div class="kpi-label">Low Stock Items</div><div class="kpi-value" id="kpi-lowstock">—</div></div>
+        <div class="kpi-card kpi-success"><div class="kpi-label">Inventory Value</div><div class="kpi-value" id="kpi-value">—</div></div>
+      </div>
+
+      <!-- Recent Orders + Alerts -->
+      <div class="grid-2">
+        <div class="card">
+          <div class="card-header">
+            <div>
+              <div class="card-title">Recent Orders</div>
+              <div class="card-subtitle">Last 5 orders</div>
+            </div>
+            <a href="orders.html" class="btn btn-secondary btn-sm">View All</a>
+          </div>
+          <div class="table-container">
+            <table>
+              <thead>
+                <tr>
+                  <th>Reference</th>
+                  <th>Status</th>
+                  <th>Priority</th>
+                  <th>Amount</th>
+                  <th>Date</th>
+                </tr>
+              </thead>
+              <tbody id="recent-orders-body">
+                <tr><td colspan="5" style="text-align:center;color:var(--color-muted);padding:20px">Loading…</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-header">
+            <div>
+              <div class="card-title">Operational Alerts</div>
+              <div class="card-subtitle">Items requiring attention</div>
+            </div>
+          </div>
+          <div id="alerts-list">
+            <div class="empty-state"><div class="empty-state-icon">✓</div><div class="empty-state-text">Loading…</div></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Quick Links -->
+      <div class="card" style="margin-top:20px;">
+        <div class="card-title" style="margin-bottom:16px">Quick Actions</div>
+        <div style="display:flex;gap:12px;flex-wrap:wrap;">
+          <a href="orders.html" class="btn btn-primary">+ New Order</a>
+          <a href="inventory.html" class="btn btn-secondary">Update Inventory</a>
+          <a href="ai-insights.html" class="btn btn-secondary">✦ AI Insights</a>
+          <a href="reports.html" class="btn btn-secondary">View Reports</a>
+        </div>
+      </div>
+    </main>
+  </div>
+</div>
+
+<script src="../js/auth.js"></script>
+<script src="../js/api.js"></script>
+<script src="../js/utils.js"></script>
+<script src="../components/common/sidebar.js"></script>
+<script>
+  if (!auth.requireAuth()) throw new Error('redirect');
+  renderSidebar('dashboard');
+  renderUserBar();
+
+  async function loadDashboard() {
+    try {
+      const res = await api.dashboardSummary();
+      const d   = res.data;
+
+      document.getElementById('kpi-warehouses').textContent = fmt.number(d.total_warehouses);
+      document.getElementById('kpi-products').textContent   = fmt.number(d.total_products);
+      document.getElementById('kpi-orders').textContent     = fmt.number(d.total_orders);
+      document.getElementById('kpi-pending').textContent    = fmt.number(d.pending_orders);
+      document.getElementById('kpi-lowstock').textContent   = fmt.number(d.low_stock_items);
+      document.getElementById('kpi-value').textContent      = fmt.currency(d.total_inventory_value);
+
+      // Recent orders table
+      const tbody = document.getElementById('recent-orders-body');
+      if (!d.recent_orders || d.recent_orders.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="5">${emptyState('No orders yet')}</td></tr>`;
+      } else {
+        tbody.innerHTML = d.recent_orders.map(o => `
+          <tr>
+            <td class="fw-600">${o.reference_number}</td>
+            <td>${badge(o.status)}</td>
+            <td>${badge(o.priority)}</td>
+            <td>${fmt.currency(o.total_amount)}</td>
+            <td class="text-muted">${fmt.date(o.created_at)}</td>
+          </tr>`).join('');
+      }
+
+      // Alerts panel
+      const alertsList = document.getElementById('alerts-list');
+      if (!d.operational_alerts || d.operational_alerts.length === 0) {
+        alertsList.innerHTML = `<div class="empty-state"><div class="empty-state-icon">✓</div><div class="empty-state-text">All systems nominal</div></div>`;
+      } else {
+        alertsList.innerHTML = d.operational_alerts.map(a =>
+          `<div class="alert alert-warning">${a}</div>`
+        ).join('');
+      }
+
+    } catch (err) {
+      toast.error('Failed to load dashboard: ' + err.message);
+    }
+  }
+
+  function logout() {
+    auth.clear();
+    window.location.href = 'login.html';
+  }
+
+  loadDashboard();
+</script>
+</body>
+</html>

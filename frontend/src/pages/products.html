@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Products — Supply Chain AI</title>
+  <link rel="stylesheet" href="../css/main.css">
+</head>
+<body>
+<div class="app-layout">
+  <div id="sidebar-placeholder"></div>
+  <div class="main-content">
+    <header class="top-bar">
+      <span class="page-title">Products</span>
+      <div class="user-info">
+        <span id="user-role" class="user-badge"></span>
+        <span id="user-name" class="text-sm fw-600"></span>
+        <button class="btn-logout" onclick="logout()">Sign Out</button>
+      </div>
+    </header>
+    <main class="page-body">
+      <div class="page-header">
+        <h1 class="page-heading">Product Catalog</h1>
+        <button class="btn btn-primary" onclick="openCreateModal()">+ Add Product</button>
+      </div>
+      <div class="card">
+        <div class="table-container">
+          <table>
+            <thead>
+              <tr><th>Name</th><th>SKU</th><th>Category</th><th>Unit</th><th>Cost</th><th>Price</th><th>Reorder Pt.</th><th>Status</th><th></th></tr>
+            </thead>
+            <tbody id="prod-tbody">
+              <tr><td colspan="9" style="text-align:center;padding:30px;color:var(--color-muted)">Loading…</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="pagination" id="prod-pagination"></div>
+      </div>
+    </main>
+  </div>
+</div>
+
+<!-- Modal -->
+<div class="modal-overlay hidden" id="prod-modal">
+  <div class="modal">
+    <div class="modal-header">
+      <span class="modal-title" id="prod-modal-title">Add Product</span>
+      <button class="modal-close" onclick="closeModal('prod-modal')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div id="prod-error" class="alert alert-danger hidden"></div>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Name *</label>
+          <input class="form-control" id="p-name" placeholder="Widget A" required>
+        </div>
+        <div class="form-group">
+          <label class="form-label">SKU *</label>
+          <input class="form-control" id="p-sku" placeholder="SKU-001" required>
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Category</label>
+          <input class="form-control" id="p-category" placeholder="Electronics">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Unit</label>
+          <input class="form-control" id="p-unit" placeholder="unit" value="unit">
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Unit Cost ($)</label>
+          <input class="form-control" id="p-cost" type="number" step="0.01" min="0" placeholder="10.00">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Unit Price ($)</label>
+          <input class="form-control" id="p-price" type="number" step="0.01" min="0" placeholder="15.00">
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Reorder Point</label>
+          <input class="form-control" id="p-reorder" type="number" min="0" placeholder="50">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Lead Time (days)</label>
+          <input class="form-control" id="p-lead" type="number" min="0" placeholder="7">
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Description</label>
+        <textarea class="form-control" id="p-desc" rows="2" placeholder="Optional description"></textarea>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('prod-modal')">Cancel</button>
+      <button class="btn btn-primary" id="prod-save-btn" onclick="saveProduct()">Save Product</button>
+    </div>
+  </div>
+</div>
+
+<script src="../js/auth.js"></script>
+<script src="../js/api.js"></script>
+<script src="../js/utils.js"></script>
+<script src="../components/common/sidebar.js"></script>
+<script>
+  if (!auth.requireAuth()) throw new Error('redirect');
+  renderSidebar('products');
+  renderUserBar();
+
+  let editingId = null;
+  let currentPage = 1;
+
+  async function loadProducts(page = 1) {
+    currentPage = page;
+    try {
+      const res   = await api.getProducts(page);
+      const tbody = document.getElementById('prod-tbody');
+      if (!res.data || res.data.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="9">${emptyState('No products found')}</td></tr>`;
+      } else {
+        tbody.innerHTML = res.data.map(p => `
+          <tr>
+            <td class="fw-600">${p.name}</td>
+            <td><code>${p.sku}</code></td>
+            <td>${p.category || '—'}</td>
+            <td>${p.unit}</td>
+            <td>${fmt.currency(p.unit_cost)}</td>
+            <td>${fmt.currency(p.unit_price)}</td>
+            <td>${p.reorder_point != null ? fmt.number(p.reorder_point) : '—'}</td>
+            <td>${badge(p.is_active ? 'active' : 'inactive')}</td>
+            <td><button class="btn btn-secondary btn-sm" onclick="editProduct('${p.id}')">Edit</button></td>
+          </tr>`).join('');
+      }
+      renderPagination('prod-pagination', res.meta, 'loadProducts');
+    } catch (err) { toast.error('Failed to load products: ' + err.message); }
+  }
+
+  function openCreateModal() {
+    editingId = null;
+    document.getElementById('prod-modal-title').textContent = 'Add Product';
+    ['p-name','p-sku','p-category','p-unit','p-cost','p-price','p-reorder','p-lead','p-desc'].forEach(id => {
+      const el = document.getElementById(id);
+      el.value = id === 'p-unit' ? 'unit' : '';
+    });
+    document.getElementById('prod-error').classList.add('hidden');
+    openModal('prod-modal');
+  }
+
+  async function editProduct(id) {
+    try {
+      const res = await api.getProduct(id);
+      const p   = res.data;
+      editingId = id;
+      document.getElementById('prod-modal-title').textContent = 'Edit Product';
+      document.getElementById('p-name').value    = p.name || '';
+      document.getElementById('p-sku').value     = p.sku || '';
+      document.getElementById('p-category').value= p.category || '';
+      document.getElementById('p-unit').value    = p.unit || 'unit';
+      document.getElementById('p-cost').value    = p.unit_cost || '';
+      document.getElementById('p-price').value   = p.unit_price || '';
+      document.getElementById('p-reorder').value = p.reorder_point || '';
+      document.getElementById('p-lead').value    = p.lead_time_days || '';
+      document.getElementById('p-desc').value    = p.description || '';
+      document.getElementById('prod-error').classList.add('hidden');
+      openModal('prod-modal');
+    } catch (err) { toast.error('Failed to load product: ' + err.message); }
+  }
+
+  async function saveProduct() {
+    const btn   = document.getElementById('prod-save-btn');
+    const errEl = document.getElementById('prod-error');
+    const name  = document.getElementById('p-name').value.trim();
+    const sku   = document.getElementById('p-sku').value.trim();
+    if (!name || !sku) { errEl.textContent = 'Name and SKU are required.'; errEl.classList.remove('hidden'); return; }
+
+    const payload = {
+      name, sku,
+      category:       document.getElementById('p-category').value.trim() || null,
+      unit:           document.getElementById('p-unit').value.trim() || 'unit',
+      unit_cost:      parseFloat(document.getElementById('p-cost').value) || null,
+      unit_price:     parseFloat(document.getElementById('p-price').value) || null,
+      reorder_point:  parseFloat(document.getElementById('p-reorder').value) || null,
+      lead_time_days: parseInt(document.getElementById('p-lead').value) || null,
+      description:    document.getElementById('p-desc').value.trim() || null,
+    };
+
+    setLoading(btn, true);
+    errEl.classList.add('hidden');
+    try {
+      if (editingId) { await api.updateProduct(editingId, payload); toast.success('Product updated'); }
+      else           { await api.createProduct(payload);             toast.success('Product created'); }
+      closeModal('prod-modal');
+      loadProducts(currentPage);
+    } catch (err) {
+      errEl.textContent = err.message;
+      errEl.classList.remove('hidden');
+    } finally { setLoading(btn, false); }
+  }
+
+  function logout() { auth.clear(); window.location.href = 'login.html'; }
+  loadProducts();
+</script>
+</body>
+</html>

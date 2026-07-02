@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Warehouses — Supply Chain AI</title>
+  <link rel="stylesheet" href="../css/main.css">
+</head>
+<body>
+<div class="app-layout">
+  <div id="sidebar-placeholder"></div>
+  <div class="main-content">
+    <header class="top-bar">
+      <span class="page-title">Warehouses</span>
+      <div class="user-info">
+        <span id="user-role" class="user-badge"></span>
+        <span id="user-name" class="text-sm fw-600"></span>
+        <button class="btn-logout" onclick="logout()">Sign Out</button>
+      </div>
+    </header>
+    <main class="page-body">
+      <div class="page-header">
+        <h1 class="page-heading">Warehouse Management</h1>
+        <button class="btn btn-primary" onclick="openModal('wh-modal')">+ Add Warehouse</button>
+      </div>
+
+      <div class="card">
+        <div class="table-container">
+          <table>
+            <thead>
+              <tr><th>Name</th><th>Code</th><th>City</th><th>Country</th><th>Capacity</th><th>Status</th><th>Actions</th></tr>
+            </thead>
+            <tbody id="wh-table-body">
+              <tr><td colspan="7" style="text-align:center;padding:30px;color:var(--color-muted)">Loading…</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="pagination" id="wh-pagination"></div>
+      </div>
+    </main>
+  </div>
+</div>
+
+<!-- Create/Edit Modal -->
+<div class="modal-overlay hidden" id="wh-modal">
+  <div class="modal">
+    <div class="modal-header">
+      <span class="modal-title" id="wh-modal-title">Add Warehouse</span>
+      <button class="modal-close" onclick="closeModal('wh-modal')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div id="wh-form-error" class="alert alert-danger hidden"></div>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Name *</label>
+          <input class="form-control" id="wh-name" placeholder="Main Warehouse" required>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Code *</label>
+          <input class="form-control" id="wh-code" placeholder="WH-001" required>
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">City</label>
+          <input class="form-control" id="wh-city" placeholder="New York">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Country</label>
+          <input class="form-control" id="wh-country" placeholder="US">
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Latitude</label>
+          <input class="form-control" id="wh-lat" type="number" step="any" placeholder="40.7128">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Longitude</label>
+          <input class="form-control" id="wh-lon" type="number" step="any" placeholder="-74.0060">
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Capacity (units)</label>
+        <input class="form-control" id="wh-capacity" type="number" min="0" placeholder="10000">
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('wh-modal')">Cancel</button>
+      <button class="btn btn-primary" id="wh-save-btn" onclick="saveWarehouse()">Save Warehouse</button>
+    </div>
+  </div>
+</div>
+
+<script src="../js/auth.js"></script>
+<script src="../js/api.js"></script>
+<script src="../js/utils.js"></script>
+<script src="../components/common/sidebar.js"></script>
+<script>
+  if (!auth.requireAuth()) throw new Error('redirect');
+  renderSidebar('warehouses');
+  renderUserBar();
+
+  let editingId = null;
+  let currentPage = 1;
+
+  async function loadWarehouses(page = 1) {
+    currentPage = page;
+    try {
+      const res = await api.getWarehouses(page);
+      const tbody = document.getElementById('wh-table-body');
+      if (!res.data || res.data.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="7">${emptyState('No warehouses found')}</td></tr>`;
+      } else {
+        tbody.innerHTML = res.data.map(w => `
+          <tr>
+            <td class="fw-600">${w.name}</td>
+            <td><code>${w.code}</code></td>
+            <td>${w.city || '—'}</td>
+            <td>${w.country || '—'}</td>
+            <td>${w.capacity ? fmt.number(w.capacity) : '—'}</td>
+            <td>${badge(w.is_active ? 'active' : 'inactive')}</td>
+            <td>
+              <button class="btn btn-secondary btn-sm" onclick="editWarehouse('${w.id}')">Edit</button>
+            </td>
+          </tr>`).join('');
+      }
+      renderPagination('wh-pagination', res.meta, 'loadWarehouses');
+    } catch (err) {
+      toast.error('Failed to load warehouses: ' + err.message);
+    }
+  }
+
+  function openCreateModal() {
+    editingId = null;
+    document.getElementById('wh-modal-title').textContent = 'Add Warehouse';
+    ['wh-name','wh-code','wh-city','wh-country','wh-lat','wh-lon','wh-capacity'].forEach(id => {
+      document.getElementById(id).value = '';
+    });
+    document.getElementById('wh-form-error').classList.add('hidden');
+    openModal('wh-modal');
+  }
+
+  document.querySelector('[onclick="openModal(\'wh-modal\')"]').setAttribute('onclick', 'openCreateModal()');
+
+  async function editWarehouse(id) {
+    try {
+      const res = await api.getWarehouse(id);
+      const w   = res.data;
+      editingId = id;
+      document.getElementById('wh-modal-title').textContent = 'Edit Warehouse';
+      document.getElementById('wh-name').value     = w.name || '';
+      document.getElementById('wh-code').value     = w.code || '';
+      document.getElementById('wh-city').value     = w.city || '';
+      document.getElementById('wh-country').value  = w.country || '';
+      document.getElementById('wh-lat').value      = w.latitude || '';
+      document.getElementById('wh-lon').value      = w.longitude || '';
+      document.getElementById('wh-capacity').value = w.capacity || '';
+      document.getElementById('wh-form-error').classList.add('hidden');
+      openModal('wh-modal');
+    } catch (err) {
+      toast.error('Failed to load warehouse: ' + err.message);
+    }
+  }
+
+  async function saveWarehouse() {
+    const btn    = document.getElementById('wh-save-btn');
+    const errEl  = document.getElementById('wh-form-error');
+    const name   = document.getElementById('wh-name').value.trim();
+    const code   = document.getElementById('wh-code').value.trim();
+    if (!name || !code) { errEl.textContent = 'Name and Code are required.'; errEl.classList.remove('hidden'); return; }
+
+    const payload = {
+      name, code,
+      city:      document.getElementById('wh-city').value.trim() || null,
+      country:   document.getElementById('wh-country').value.trim() || null,
+      latitude:  parseFloat(document.getElementById('wh-lat').value) || null,
+      longitude: parseFloat(document.getElementById('wh-lon').value) || null,
+      capacity:  parseInt(document.getElementById('wh-capacity').value) || null,
+    };
+
+    setLoading(btn, true);
+    errEl.classList.add('hidden');
+    try {
+      if (editingId) {
+        await api.updateWarehouse(editingId, payload);
+        toast.success('Warehouse updated');
+      } else {
+        await api.createWarehouse(payload);
+        toast.success('Warehouse created');
+      }
+      closeModal('wh-modal');
+      loadWarehouses(currentPage);
+    } catch (err) {
+      errEl.textContent = err.message;
+      errEl.classList.remove('hidden');
+    } finally {
+      setLoading(btn, false);
+    }
+  }
+
+  function logout() { auth.clear(); window.location.href = 'login.html'; }
+  loadWarehouses();
+</script>
+</body>
+</html>

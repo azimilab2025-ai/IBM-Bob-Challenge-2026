@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AI Insights — Supply Chain AI</title>
+  <link rel="stylesheet" href="../css/main.css">
+</head>
+<body>
+<div class="app-layout">
+  <div id="sidebar-placeholder"></div>
+  <div class="main-content">
+    <header class="top-bar">
+      <span class="page-title">AI Insights</span>
+      <div class="user-info">
+        <span id="user-role" class="user-badge"></span>
+        <span id="user-name" class="text-sm fw-600"></span>
+        <button class="btn-logout" onclick="logout()">Sign Out</button>
+      </div>
+    </header>
+    <main class="page-body">
+      <div class="page-header">
+        <h1 class="page-heading">✦ AI Decision Support</h1>
+      </div>
+
+      <div class="grid-3" style="margin-bottom:20px;">
+        <!-- Demand Forecasting -->
+        <div class="card">
+          <div class="card-header">
+            <div>
+              <div class="card-title">Demand Forecasting</div>
+              <div class="card-subtitle">Predict future product demand</div>
+            </div>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Product ID</label>
+            <input class="form-control" id="fc-product-id" placeholder="Product UUID">
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label">Horizon (days)</label>
+              <input class="form-control" id="fc-horizon" type="number" value="30" min="1" max="365">
+            </div>
+            <div class="form-group">
+              <label class="form-label">Window (days)</label>
+              <input class="form-control" id="fc-window" type="number" value="7" min="1" max="90">
+            </div>
+          </div>
+          <button class="btn btn-primary" style="width:100%" id="fc-btn" onclick="runForecast()">Run Forecast</button>
+          <div id="fc-result" class="hidden" style="margin-top:12px;"></div>
+        </div>
+
+        <!-- Inventory Optimization -->
+        <div class="card">
+          <div class="card-header">
+            <div>
+              <div class="card-title">Inventory Optimization</div>
+              <div class="card-subtitle">Calculate safety stock &amp; EOQ</div>
+            </div>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Product ID</label>
+            <input class="form-control" id="opt-product-id" placeholder="Product UUID">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Warehouse ID</label>
+            <input class="form-control" id="opt-warehouse-id" placeholder="Warehouse UUID">
+          </div>
+          <button class="btn btn-primary" style="width:100%;margin-top:8px;" id="opt-btn" onclick="runOptimize()">Optimize</button>
+          <div id="opt-result" class="hidden" style="margin-top:12px;"></div>
+        </div>
+
+        <!-- Route Optimization -->
+        <div class="card">
+          <div class="card-header">
+            <div>
+              <div class="card-title">Route Optimization</div>
+              <div class="card-subtitle">Optimize delivery sequence</div>
+            </div>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Warehouse ID</label>
+            <input class="form-control" id="rt-warehouse-id" placeholder="Warehouse UUID">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Order IDs (one per line)</label>
+            <textarea class="form-control" id="rt-order-ids" rows="3" placeholder="UUID&#10;UUID&#10;UUID"></textarea>
+          </div>
+          <button class="btn btn-primary" style="width:100%" id="rt-btn" onclick="runRoute()">Optimize Routes</button>
+          <div id="rt-result" class="hidden" style="margin-top:12px;"></div>
+        </div>
+      </div>
+    </main>
+  </div>
+</div>
+
+<script src="../js/auth.js"></script>
+<script src="../js/api.js"></script>
+<script src="../js/utils.js"></script>
+<script src="../components/common/sidebar.js"></script>
+<script>
+  if (!auth.requireAuth()) throw new Error('redirect');
+  renderSidebar('ai-insights');
+  renderUserBar();
+
+  async function runForecast() {
+    const btn = document.getElementById('fc-btn');
+    const pid = document.getElementById('fc-product-id').value.trim();
+    const horizon = parseInt(document.getElementById('fc-horizon').value) || 30;
+    const window_ = parseInt(document.getElementById('fc-window').value) || 7;
+    if (!pid) { toast.warning('Enter a Product ID'); return; }
+
+    setLoading(btn, true);
+    try {
+      const res = await api.forecastDemand(pid, horizon, window_);
+      const d   = res.data;
+      const totalDemand = d.forecast?.total_predicted_demand || 0;
+      const daily = totalDemand / horizon;
+      document.getElementById('fc-result').innerHTML = `
+        <div class="insight-block">
+          <div class="insight-label">Forecast Result — ${d.method}</div>
+          <div>Horizon: <strong>${d.horizon_days} days</strong></div>
+          <div>Total predicted demand: <strong>${fmt.decimal(totalDemand, 1)} units</strong></div>
+          <div>Average daily demand: <strong>${fmt.decimal(daily, 2)} units/day</strong></div>
+          <div style="margin-top:8px;font-size:0.82rem;color:#1e40af;">${d.explanation}</div>
+        </div>`;
+      document.getElementById('fc-result').classList.remove('hidden');
+    } catch (err) { toast.error('Forecast failed: ' + err.message); }
+    finally { setLoading(btn, false); }
+  }
+
+  async function runOptimize() {
+    const btn = document.getElementById('opt-btn');
+    const pid = document.getElementById('opt-product-id').value.trim();
+    const wid = document.getElementById('opt-warehouse-id').value.trim();
+    if (!pid || !wid) { toast.warning('Enter both Product ID and Warehouse ID'); return; }
+
+    setLoading(btn, true);
+    try {
+      const res = await api.optimizeInventory(pid, wid);
+      const d   = res.data;
+      document.getElementById('opt-result').innerHTML = `
+        <div class="insight-block">
+          <div class="insight-label">Optimization Result — EOQ</div>
+          <div>Safety Stock: <strong>${fmt.decimal(d.safety_stock, 1)} units</strong></div>
+          <div>Reorder Point: <strong>${fmt.decimal(d.reorder_point, 1)} units</strong></div>
+          <div>Recommended Order Qty: <strong>${fmt.decimal(d.recommended_order_quantity, 1)} units</strong></div>
+          <div>Expected Holding Cost: <strong>${fmt.currency(d.expected_holding_cost)}</strong></div>
+          <div>Shortage Risk: <strong>${fmt.percent(d.expected_shortage_risk * 100)}</strong></div>
+          <div style="margin-top:8px;font-size:0.82rem;color:#1e40af;">${d.explanation}</div>
+        </div>`;
+      document.getElementById('opt-result').classList.remove('hidden');
+    } catch (err) { toast.error('Optimization failed: ' + err.message); }
+    finally { setLoading(btn, false); }
+  }
+
+  async function runRoute() {
+    const btn  = document.getElementById('rt-btn');
+    const wid  = document.getElementById('rt-warehouse-id').value.trim();
+    const raw  = document.getElementById('rt-order-ids').value.trim();
+    const oids = raw.split('\n').map(s => s.trim()).filter(Boolean);
+    if (!wid || oids.length === 0) { toast.warning('Enter Warehouse ID and at least one Order ID'); return; }
+
+    setLoading(btn, true);
+    try {
+      const res = await api.optimizeRoutes(wid, oids);
+      const d   = res.data;
+      const stops = d.route?.stops || [];
+      document.getElementById('rt-result').innerHTML = `
+        <div class="insight-block">
+          <div class="insight-label">Route Result — ${stops.length} stop(s)</div>
+          ${d.total_distance_km != null ? `<div>Total distance: <strong>${fmt.decimal(d.total_distance_km, 1)} km</strong></div>` : ''}
+          ${d.estimated_duration_minutes != null ? `<div>Estimated duration: <strong>${d.estimated_duration_minutes} min</strong></div>` : ''}
+          <div style="margin-top:8px;font-size:0.82rem;color:#1e40af;">${d.explanation}</div>
+        </div>`;
+      document.getElementById('rt-result').classList.remove('hidden');
+    } catch (err) { toast.error('Route optimization failed: ' + err.message); }
+    finally { setLoading(btn, false); }
+  }
+
+  function logout() { auth.clear(); window.location.href = 'login.html'; }
+</script>
+</body>
+</html>

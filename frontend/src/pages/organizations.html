@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Organizations — Supply Chain AI</title>
+  <link rel="stylesheet" href="../css/main.css">
+</head>
+<body>
+<div class="app-layout">
+  <div id="sidebar-placeholder"></div>
+  <div class="main-content">
+    <header class="top-bar">
+      <span class="page-title">Organizations</span>
+      <div class="user-info">
+        <span id="user-role" class="user-badge"></span>
+        <span id="user-name" class="text-sm fw-600"></span>
+        <button class="btn-logout" onclick="logout()">Sign Out</button>
+      </div>
+    </header>
+    <main class="page-body">
+      <div class="page-header">
+        <h1 class="page-heading">Organization Management</h1>
+        <button class="btn btn-primary" onclick="openCreateModal()">+ New Organization</button>
+      </div>
+      <div class="card">
+        <div class="table-container">
+          <table>
+            <thead><tr><th>Name</th><th>Contact Email</th><th>Phone</th><th>Status</th><th></th></tr></thead>
+            <tbody id="org-tbody">
+              <tr><td colspan="5" style="text-align:center;padding:30px;color:var(--color-muted)">Loading…</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="pagination" id="org-pagination"></div>
+      </div>
+    </main>
+  </div>
+</div>
+
+<div class="modal-overlay hidden" id="org-modal">
+  <div class="modal">
+    <div class="modal-header">
+      <span class="modal-title" id="org-modal-title">New Organization</span>
+      <button class="modal-close" onclick="closeModal('org-modal')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div id="org-error" class="alert alert-danger hidden"></div>
+      <div class="form-group"><label class="form-label">Name *</label><input class="form-control" id="org-name" placeholder="Acme Corp"></div>
+      <div class="form-group"><label class="form-label">Description</label><textarea class="form-control" id="org-desc" rows="2"></textarea></div>
+      <div class="form-row">
+        <div class="form-group"><label class="form-label">Contact Email</label><input class="form-control" id="org-email" type="email" placeholder="contact@acme.com"></div>
+        <div class="form-group"><label class="form-label">Phone</label><input class="form-control" id="org-phone" placeholder="+1 555 0100"></div>
+      </div>
+      <div class="form-group"><label class="form-label">Address</label><input class="form-control" id="org-address" placeholder="123 Business Ave"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('org-modal')">Cancel</button>
+      <button class="btn btn-primary" id="org-save-btn" onclick="saveOrg()">Save</button>
+    </div>
+  </div>
+</div>
+
+<script src="../js/auth.js"></script>
+<script src="../js/api.js"></script>
+<script src="../js/utils.js"></script>
+<script src="../components/common/sidebar.js"></script>
+<script>
+  if (!auth.requireAuth()) throw new Error('redirect');
+  renderSidebar('organizations');
+  renderUserBar();
+
+  let editingId = null, currentPage = 1;
+
+  async function loadOrgs(page = 1) {
+    currentPage = page;
+    try {
+      const res = await api.getOrganizations(page);
+      const tbody = document.getElementById('org-tbody');
+      if (!res.data || res.data.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="5">${emptyState('No organizations found')}</td></tr>`;
+      } else {
+        tbody.innerHTML = res.data.map(o => `
+          <tr>
+            <td class="fw-600">${o.name}</td>
+            <td>${o.contact_email || '—'}</td>
+            <td>${o.contact_phone || '—'}</td>
+            <td>${badge(o.is_active ? 'active' : 'inactive')}</td>
+            <td><button class="btn btn-secondary btn-sm" onclick="editOrg('${o.id}')">Edit</button></td>
+          </tr>`).join('');
+      }
+      renderPagination('org-pagination', res.meta, 'loadOrgs');
+    } catch (err) { toast.error(err.message); }
+  }
+
+  function openCreateModal() {
+    editingId = null;
+    document.getElementById('org-modal-title').textContent = 'New Organization';
+    ['org-name','org-desc','org-email','org-phone','org-address'].forEach(id => document.getElementById(id).value = '');
+    document.getElementById('org-error').classList.add('hidden');
+    openModal('org-modal');
+  }
+
+  async function editOrg(id) {
+    try {
+      const res = await api.getOrganization(id);
+      const o = res.data; editingId = id;
+      document.getElementById('org-modal-title').textContent = 'Edit Organization';
+      document.getElementById('org-name').value    = o.name || '';
+      document.getElementById('org-desc').value    = o.description || '';
+      document.getElementById('org-email').value   = o.contact_email || '';
+      document.getElementById('org-phone').value   = o.contact_phone || '';
+      document.getElementById('org-address').value = o.address || '';
+      document.getElementById('org-error').classList.add('hidden');
+      openModal('org-modal');
+    } catch (err) { toast.error(err.message); }
+  }
+
+  async function saveOrg() {
+    const btn = document.getElementById('org-save-btn');
+    const errEl = document.getElementById('org-error');
+    const name = document.getElementById('org-name').value.trim();
+    if (!name) { errEl.textContent = 'Name is required.'; errEl.classList.remove('hidden'); return; }
+    const payload = {
+      name,
+      description:   document.getElementById('org-desc').value.trim() || null,
+      contact_email: document.getElementById('org-email').value.trim() || null,
+      contact_phone: document.getElementById('org-phone').value.trim() || null,
+      address:       document.getElementById('org-address').value.trim() || null,
+    };
+    setLoading(btn, true); errEl.classList.add('hidden');
+    try {
+      if (editingId) { await api.updateOrganization(editingId, payload); toast.success('Updated'); }
+      else           { await api.createOrganization(payload);             toast.success('Created'); }
+      closeModal('org-modal'); loadOrgs(currentPage);
+    } catch (err) { errEl.textContent = err.message; errEl.classList.remove('hidden'); }
+    finally { setLoading(btn, false); }
+  }
+
+  function logout() { auth.clear(); window.location.href = 'login.html'; }
+  loadOrgs();
+</script>
+</body>
+</html>

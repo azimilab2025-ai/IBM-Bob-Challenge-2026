@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Inventory — Supply Chain AI</title>
+  <link rel="stylesheet" href="../css/main.css">
+</head>
+<body>
+<div class="app-layout">
+  <div id="sidebar-placeholder"></div>
+  <div class="main-content">
+    <header class="top-bar">
+      <span class="page-title">Inventory</span>
+      <div class="user-info">
+        <span id="user-role" class="user-badge"></span>
+        <span id="user-name" class="text-sm fw-600"></span>
+        <button class="btn-logout" onclick="logout()">Sign Out</button>
+      </div>
+    </header>
+    <main class="page-body">
+      <div class="page-header">
+        <h1 class="page-heading">Inventory Management</h1>
+        <div style="display:flex;gap:10px;">
+          <button class="btn btn-secondary" onclick="loadLowStock()">⚠ Low Stock</button>
+          <button class="btn btn-primary" onclick="openModal('inv-modal')">+ Set Inventory</button>
+        </div>
+      </div>
+
+      <!-- Low Stock Alert Banner -->
+      <div id="low-stock-banner" class="hidden"></div>
+
+      <div class="card">
+        <div class="table-container">
+          <table>
+            <thead>
+              <tr><th>Product ID</th><th>Warehouse ID</th><th>On Hand</th><th>Reserved</th><th>Available</th><th>Reorder Pt.</th><th>Status</th><th></th></tr>
+            </thead>
+            <tbody id="inv-tbody">
+              <tr><td colspan="8" style="text-align:center;padding:30px;color:var(--color-muted)">Loading…</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="pagination" id="inv-pagination"></div>
+      </div>
+    </main>
+  </div>
+</div>
+
+<!-- Set Inventory Modal -->
+<div class="modal-overlay hidden" id="inv-modal">
+  <div class="modal">
+    <div class="modal-header">
+      <span class="modal-title">Set Inventory Level</span>
+      <button class="modal-close" onclick="closeModal('inv-modal')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div id="inv-error" class="alert alert-danger hidden"></div>
+      <div class="form-group">
+        <label class="form-label">Product ID *</label>
+        <input class="form-control" id="inv-product-id" placeholder="UUID of product">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Warehouse ID *</label>
+        <input class="form-control" id="inv-warehouse-id" placeholder="UUID of warehouse">
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Quantity On Hand *</label>
+          <input class="form-control" id="inv-qty" type="number" min="0" step="0.01" placeholder="100">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Reorder Point</label>
+          <input class="form-control" id="inv-reorder" type="number" min="0" step="0.01" placeholder="20">
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('inv-modal')">Cancel</button>
+      <button class="btn btn-primary" id="inv-save-btn" onclick="saveInventory()">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- Adjust Modal -->
+<div class="modal-overlay hidden" id="adj-modal">
+  <div class="modal">
+    <div class="modal-header">
+      <span class="modal-title">Adjust Inventory</span>
+      <button class="modal-close" onclick="closeModal('adj-modal')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div id="adj-error" class="alert alert-danger hidden"></div>
+      <input type="hidden" id="adj-item-id">
+      <div class="form-group">
+        <label class="form-label">Adjustment Delta (+ to add, − to remove)</label>
+        <input class="form-control" id="adj-delta" type="number" step="0.01" placeholder="+10 or -5">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Reason</label>
+        <input class="form-control" id="adj-reason" placeholder="Manual adjustment, received shipment…">
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('adj-modal')">Cancel</button>
+      <button class="btn btn-primary" id="adj-save-btn" onclick="saveAdjust()">Apply</button>
+    </div>
+  </div>
+</div>
+
+<script src="../js/auth.js"></script>
+<script src="../js/api.js"></script>
+<script src="../js/utils.js"></script>
+<script src="../components/common/sidebar.js"></script>
+<script>
+  if (!auth.requireAuth()) throw new Error('redirect');
+  renderSidebar('inventory');
+  renderUserBar();
+
+  let currentPage = 1;
+
+  async function loadInventory(page = 1) {
+    currentPage = page;
+    try {
+      const res   = await api.getInventory(page);
+      const tbody = document.getElementById('inv-tbody');
+      if (!res.data || res.data.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="8">${emptyState('No inventory records found')}</td></tr>`;
+      } else {
+        tbody.innerHTML = res.data.map(i => `
+          <tr>
+            <td class="text-sm text-muted">${i.product_id.slice(0,8)}…</td>
+            <td class="text-sm text-muted">${i.warehouse_id.slice(0,8)}…</td>
+            <td class="fw-600">${fmt.decimal(i.quantity_on_hand)}</td>
+            <td>${fmt.decimal(i.quantity_reserved)}</td>
+            <td>${fmt.decimal(i.quantity_available)}</td>
+            <td>${i.reorder_point != null ? fmt.decimal(i.reorder_point) : '—'}</td>
+            <td>${i.is_low_stock ? '<span class="badge badge-warning">Low Stock</span>' : '<span class="badge badge-success">OK</span>'}</td>
+            <td><button class="btn btn-secondary btn-sm" onclick="openAdjust('${i.id}')">Adjust</button></td>
+          </tr>`).join('');
+      }
+      renderPagination('inv-pagination', res.meta, 'loadInventory');
+    } catch (err) { toast.error('Failed to load inventory: ' + err.message); }
+  }
+
+  async function loadLowStock() {
+    try {
+      const res    = await api.getLowStock();
+      const banner = document.getElementById('low-stock-banner');
+      if (!res.data || res.data.length === 0) {
+        toast.success('No low-stock items.');
+        banner.classList.add('hidden');
+      } else {
+        banner.className = 'alert alert-warning';
+        banner.innerHTML = `<strong>⚠ ${res.data.length} low-stock item(s)</strong> — check inventory levels.`;
+        banner.classList.remove('hidden');
+      }
+    } catch (err) { toast.error(err.message); }
+  }
+
+  async function saveInventory() {
+    const btn   = document.getElementById('inv-save-btn');
+    const errEl = document.getElementById('inv-error');
+    const productId   = document.getElementById('inv-product-id').value.trim();
+    const warehouseId = document.getElementById('inv-warehouse-id').value.trim();
+    const qty = parseFloat(document.getElementById('inv-qty').value);
+    if (!productId || !warehouseId || isNaN(qty)) {
+      errEl.textContent = 'Product ID, Warehouse ID and Quantity are required.';
+      errEl.classList.remove('hidden'); return;
+    }
+    setLoading(btn, true); errEl.classList.add('hidden');
+    try {
+      await api.setInventory({
+        product_id: productId, warehouse_id: warehouseId,
+        quantity_on_hand: qty,
+        reorder_point: parseFloat(document.getElementById('inv-reorder').value) || null,
+      });
+      toast.success('Inventory saved');
+      closeModal('inv-modal');
+      loadInventory(currentPage);
+    } catch (err) {
+      errEl.textContent = err.message; errEl.classList.remove('hidden');
+    } finally { setLoading(btn, false); }
+  }
+
+  function openAdjust(id) {
+    document.getElementById('adj-item-id').value = id;
+    document.getElementById('adj-delta').value = '';
+    document.getElementById('adj-reason').value = '';
+    document.getElementById('adj-error').classList.add('hidden');
+    openModal('adj-modal');
+  }
+
+  async function saveAdjust() {
+    const btn   = document.getElementById('adj-save-btn');
+    const errEl = document.getElementById('adj-error');
+    const id    = document.getElementById('adj-item-id').value;
+    const delta = parseFloat(document.getElementById('adj-delta').value);
+    if (isNaN(delta)) { errEl.textContent = 'Enter a numeric delta.'; errEl.classList.remove('hidden'); return; }
+    setLoading(btn, true); errEl.classList.add('hidden');
+    try {
+      await api.adjustInventory(id, delta, document.getElementById('adj-reason').value.trim());
+      toast.success(`Quantity adjusted by ${delta > 0 ? '+' : ''}${delta}`);
+      closeModal('adj-modal');
+      loadInventory(currentPage);
+    } catch (err) {
+      errEl.textContent = err.message; errEl.classList.remove('hidden');
+    } finally { setLoading(btn, false); }
+  }
+
+  function logout() { auth.clear(); window.location.href = 'login.html'; }
+  loadInventory();
+</script>
+</body>
+</html>
