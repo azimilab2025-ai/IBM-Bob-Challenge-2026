@@ -1,5 +1,6 @@
 """Order request/response schemas."""
 import uuid
+from datetime import datetime
 from typing import List, Optional
 
 from pydantic import BaseModel, Field
@@ -53,5 +54,6 @@ class OrderResponse(BaseModel):
     notes: Optional[str]
     total_amount: Optional[float]
     items: List[OrderItemResponse] = []
+    created_at: Optional[datetime] = None
 
     model_config = {"from_attributes": True}

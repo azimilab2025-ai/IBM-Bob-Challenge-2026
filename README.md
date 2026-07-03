@@ -171,7 +171,7 @@ docker-compose up -d
 docker-compose exec backend alembic upgrade head
 
 # Seed initial data
-docker-compose exec backend python /app/scripts/seed_data.py
+python scripts/seed_data.py
 
 # Verify the API is running
 curl http://localhost:8000/health

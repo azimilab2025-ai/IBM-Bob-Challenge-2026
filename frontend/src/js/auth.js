@@ -36,7 +36,7 @@ const auth = {
   /** Redirect to login if not authenticated. Call at top of every protected page. */
   requireAuth() {
     if (!this.isAuthenticated()) {
-      window.location.href = '/src/pages/login.html';
+      window.location.href = 'login.html';
       return false;
     }
     return true;
@@ -45,7 +45,7 @@ const auth = {
   /** Redirect to dashboard if already authenticated. Call on login page. */
   redirectIfAuthenticated() {
     if (this.isAuthenticated()) {
-      window.location.href = '/src/pages/dashboard.html';
+      window.location.href = 'dashboard.html';
     }
   },
 };

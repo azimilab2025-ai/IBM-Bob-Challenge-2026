@@ -1,6 +1,8 @@
 """
 Pytest configuration and shared fixtures for all tests.
-Uses SQLite in-memory database to avoid requiring a live PostgreSQL instance.
+
+Uses SQLite in-memory database with StaticPool to ensure all connections —
+including those made from the FastAPI thread pool — see the same database.
 Overrides the FastAPI app's get_db dependency for full isolation.
 """
 import os
@@ -11,8 +13,9 @@ import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine, event
 from sqlalchemy.orm import Session, sessionmaker
+from sqlalchemy.pool import StaticPool
 
-# ── Set env vars BEFORE importing app modules ──────────────────────────────
+# ── Set env vars BEFORE importing app modules ───────────────────────────
 os.environ.setdefault("DATABASE_URL", "sqlite:///:memory:")
 os.environ.setdefault("SECRET_KEY",   "test-secret-key-that-is-at-least-32-chars!!")
 os.environ.setdefault("APP_ENV",      "development")
@@ -33,21 +36,25 @@ from app.models.product import Product
 from app.models.inventory import InventoryItem
 from app.models.order import Order, OrderItem, OrderStatus, OrderPriority
 
-# ── SQLite test engine ──────────────────────────────────────────────────────
-
-SQLITE_URL = "sqlite:///:memory:"
+# ── SQLite test engine ──────────────────────────────────────────────────
+# StaticPool: all connections share one in-memory database, regardless of
+# which thread makes the connection.  This is required because FastAPI/Starlette
+# runs endpoint handlers in a thread pool — without StaticPool each thread
+# would get an empty in-memory DB instead of the seeded one.
 
 _test_engine = create_engine(
-    SQLITE_URL,
+    "sqlite:///:memory:",
     connect_args={"check_same_thread": False},
+    poolclass=StaticPool,
 )
 
-# SQLite does not enforce foreign key constraints by default
+
 @event.listens_for(_test_engine, "connect")
 def set_sqlite_pragma(dbapi_conn, connection_record):
     cursor = dbapi_conn.cursor()
     cursor.execute("PRAGMA foreign_keys=ON")
     cursor.close()
+
 
 TestingSessionLocal = sessionmaker(
     autocommit=False,
@@ -82,7 +89,7 @@ def db() -> Generator[Session, None, None]:
 def client(db: Session) -> Generator[TestClient, None, None]:
     """
     FastAPI TestClient with get_db overridden to use the test session.
-    Each test gets a clean database state.
+    Each test gets a clean database state via transaction rollback.
     """
     app = create_application()
 
@@ -95,7 +102,7 @@ def client(db: Session) -> Generator[TestClient, None, None]:
     app.dependency_overrides.clear()
 
 
-# ── Shared data fixtures ────────────────────────────────────────────────────
+# ── Shared data fixtures ────────────────────────────────────────────────
 
 @pytest.fixture()
 def test_org(db: Session) -> Organization:
@@ -226,11 +233,10 @@ def test_inventory(db: Session, test_product: Product, test_warehouse: Warehouse
 
 @pytest.fixture()
 def test_order(db: Session, test_org: Organization, test_admin: User, test_product: Product) -> Order:
-    import uuid as _uuid
     order = Order(
         organization_id=test_org.id,
         created_by=test_admin.id,
-        reference_number=f"ORD-TEST-{str(_uuid.uuid4())[:8].upper()}",
+        reference_number=f"ORD-TEST-{str(uuid.uuid4())[:8].upper()}",
         status=OrderStatus.PENDING,
         priority=OrderPriority.NORMAL,
         delivery_address="123 Test St",

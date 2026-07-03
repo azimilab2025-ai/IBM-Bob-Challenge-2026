@@ -4,12 +4,29 @@
  * Handles auth headers, error normalization, and response envelope unwrapping.
  */
 
-const API_BASE = '/api/v1';
+/**
+ * Resolve the API base URL from a single source of truth.
+ *
+ * Priority:
+ *  1. window.__API_BASE  — set by a page/config script to override at runtime
+ *  2. HTTP/HTTPS origin  — standard browser serving (nginx proxy, dev server)
+ *  3. Fallback           — direct file:// opening without a server
+ */
+const API_BASE = (function () {
+  if (typeof window.__API_BASE === 'string' && window.__API_BASE) {
+    return window.__API_BASE.replace(/\/$/, '');
+  }
+  if (window.location.protocol === 'http:' || window.location.protocol === 'https:') {
+    return '/api/v1';
+  }
+  // file:// — point directly at the local dev backend
+  return 'http://localhost:8000/api/v1';
+}());
 
 /**
  * Core request function.
- * Returns the unwrapped `data` field from the success envelope,
- * or throws an Error with the backend message on failure.
+ * Returns the full response envelope; callers access .data or .meta as needed.
+ * Throws an Error with the backend message on any non-2xx response.
  */
 async function request(method, path, body = null) {
   const token = auth.getToken();
@@ -24,7 +41,7 @@ async function request(method, path, body = null) {
   // Handle 401 — token expired or invalid
   if (response.status === 401) {
     auth.clear();
-    window.location.href = '/src/pages/login.html';
+    window.location.href = 'login.html';
     throw new Error('Session expired. Please log in again.');
   }
 

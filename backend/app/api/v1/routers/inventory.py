@@ -25,9 +25,12 @@ def list_inventory(
     svc = InventoryService(db)
     skip = (page - 1) * per_page
     items = svc.list_by_org(org_id, skip=skip, limit=per_page)
+    from app.repositories.inventory_repository import InventoryRepository
+    from app.models.inventory import InventoryItem
+    total = InventoryRepository(InventoryItem, db).count_by_org(org_id)
     return PaginatedResponse(
         data=[_to_response(i) for i in items],
-        meta=PaginationMeta(page=page, per_page=per_page, total=len(items), total_pages=1),
+        meta=PaginationMeta(page=page, per_page=per_page, total=total, total_pages=max(1, -(-total // per_page))),
     )
 
 

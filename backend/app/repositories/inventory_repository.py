@@ -2,7 +2,7 @@
 import uuid
 from typing import List, Optional
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 
 from app.models.inventory import InventoryItem
 from app.repositories.base_repository import BaseRepository
@@ -62,3 +62,13 @@ class InventoryRepository(BaseRepository[InventoryItem]):
             .limit(limit)
         )
         return list(self.db.scalars(stmt).all())
+
+    def count_by_org(self, organization_id: uuid.UUID) -> int:
+        from app.models.warehouse import Warehouse
+        stmt = (
+            select(func.count())
+            .select_from(InventoryItem)
+            .join(Warehouse, InventoryItem.warehouse_id == Warehouse.id)
+            .where(Warehouse.organization_id == organization_id)
+        )
+        return self.db.scalar(stmt) or 0
