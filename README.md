@@ -12,6 +12,31 @@
   <img src="https://img.shields.io/badge/license-MIT-lightgrey" alt="License" />
 </p>
 
+<p align="center">
+  <img
+    src="assets/demo/supply-chain-optimization-platform-demo.gif"
+    alt="AI-Powered Supply Chain Optimization Platform Demo"
+    width="900"
+  />
+</p>
+
+---
+
+## Demo & API Walkthrough
+
+The platform ships with a fully documented FastAPI backend — interactive Swagger UI available at `/docs`. All endpoints require JWT authentication, enforce role-based access control, and return a consistent JSON envelope. The API covers authentication, organization and warehouse management, inventory tracking, order lifecycle, AI insights (demand forecasting, inventory optimization, route optimization), the management dashboard, and reports.
+
+**API Documentation Screenshots**
+
+| | |
+|:---:|:---:|
+| ![API Overview & Reports](assets/screenshots/01-api-overview-reports.jpg) | ![Authentication Flow](assets/screenshots/02-authentication-flow.jpg) |
+| *API Overview & Reports* | *Authentication Flow* |
+| ![Warehouses API](assets/screenshots/03-warehouses-api.jpg) | ![Inventory API](assets/screenshots/04-inventory-api.jpg) |
+| *Warehouses API* | *Inventory API* |
+| ![AI Insights API](assets/screenshots/05-ai-insights-api.jpg) | ![Dashboard & Reports](assets/screenshots/06-dashboard-reports-api.jpg) |
+| *AI Insights API* | *Dashboard & Reports* |
+
 ---
 
 ## What Problem Does This Solve?
@@ -204,43 +229,27 @@ pytest --cov=app --cov=ai --cov-report=term-missing
 
 ## Project Structure
 
-```
+```text
 IBM-Bob-Challenge-2026/
 ├── backend/
 │   ├── app/
-│   │   ├── api/v1/routers/     # HTTP handlers — routing only, no business logic
-│   │   ├── core/               # Config, security, exceptions, logging, dependencies
-│   │   ├── db/                 # Session factory, declarative base, UUIDType
-│   │   ├── models/             # SQLAlchemy ORM models (12 tables)
-│   │   ├── schemas/            # Pydantic request/response schemas
-│   │   ├── repositories/       # Database access layer (7 repositories)
-│   │   ├── services/           # Business logic layer (9 services)
-│   │   └── main.py             # Application factory (create_application)
+│   │   ├── api/v1/routers/
+│   │   ├── core/
+│   │   ├── db/
+│   │   ├── models/
+│   │   ├── schemas/
+│   │   ├── repositories/
+│   │   ├── services/
+│   │   └── main.py
 │   ├── ai/
-│   │   ├── interfaces/         # 4 abstract base classes
-│   │   ├── demand_forecasting/ # Moving average forecaster
-│   │   ├── warehouse_allocation/ # Score-based allocation engine
-│   │   ├── inventory_optimization/ # EOQ optimizer
-│   │   └── route_optimization/ # Nearest-neighbor router
-│   ├── migrations/             # Alembic migration scripts (initial schema v0001)
+│   ├── migrations/
 │   ├── tests/
-│   │   ├── conftest.py         # Shared fixtures (SQLite in-memory, client, data)
-│   │   ├── unit/               # AI modules + security (22 tests)
-│   │   └── api/                # Full HTTP cycle tests (47 tests)
 │   ├── Dockerfile
 │   ├── requirements.txt
 │   └── pytest.ini
 ├── frontend/
-│   ├── index.html              # Entry point
-│   └── src/
-│       ├── css/main.css        # Complete design system
-│       ├── js/                 # api.js, auth.js, utils.js
-│       ├── components/common/  # sidebar.js, shell.js
-│       └── pages/              # 10 HTML pages
-├── docs/                       # Architecture, API, deployment, testing guides
+├── docs/
 ├── scripts/
-│   ├── seed_data.py            # Seeds admin user + sample org/warehouse/products
-│   └── setup.sh                # One-command local setup script
 ├── docker-compose.yml
 ├── .env.example
 └── README.md
@@ -263,8 +272,9 @@ IBM-Bob-Challenge-2026/
 | GET | `/api/v1/inventory/alerts/low-stock` | Low-stock alerts |
 | GET/POST | `/api/v1/orders` | List or create orders |
 | POST | `/api/v1/orders/{id}/allocate` | AI warehouse allocation |
-| GET | `/api/v1/ai/forecast/{product_id}` | Demand forecast |
-| GET | `/api/v1/ai/optimize/{product_id}` | Inventory optimization |
+| POST | `/api/v1/ai/forecast/{product_id}` | Demand forecast |
+| POST | `/api/v1/ai/optimize-inventory` | Inventory optimization |
+| POST | `/api/v1/ai/optimize-routes` | Route optimization |
 | GET | `/api/v1/dashboard/summary` | Management KPIs |
 | GET | `/api/v1/reports/inventory` | Inventory report |
 
