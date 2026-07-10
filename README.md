@@ -40,81 +40,86 @@ The backend API is deployed on Render and can be tested directly through the int
 
 ### Demo Login
 
-Use the following demo account in Swagger UI or through the `/api/v1/auth/login` endpoint:
+Use the following demo account in Swagger UI through the `/api/v1/auth/login` endpoint:
 
 ```text
 Email: admin@supplychain-demo.com
 Password: SupplyChainDemo2026!
 ```
 
+The root URL may return `{"detail":"Not Found"}` by design because the API is served through documented endpoints. Use `/docs` for testing and `/health` for status verification.
+
 ---
 
 ## 30-Second Judge Walkthrough
 
-1. Open the live Swagger UI:  
-   https://ibm-supply-chain-api.onrender.com/docs
+1. Open the live Swagger UI:
 
-2. Confirm the system is online using:
+```text
+https://ibm-supply-chain-api.onrender.com/docs
+```
+
+2. Run the health check:
 
 ```text
 GET /health
 ```
 
-3. Log in using:
+3. Log in with the demo account:
 
 ```text
 POST /api/v1/auth/login
 ```
 
-4. Click **Authorize** in Swagger and paste the returned access token.
+4. Copy the returned JWT access token and click **Authorize** in Swagger.
 
-5. Test the core platform endpoints:
+5. Test the main decision-support endpoints:
 
 ```text
 GET  /api/v1/dashboard/summary
-GET  /api/v1/warehouses
-GET  /api/v1/products
-GET  /api/v1/inventory
+GET  /api/v1/inventory/alerts/low-stock
+POST /api/v1/orders/{id}/allocate
+POST /api/v1/ai/forecast/{product_id}
 POST /api/v1/ai/optimize-inventory
 POST /api/v1/ai/optimize-routes
 ```
-
-This demonstrates the deployed API, authentication, database connection, supply-chain data model, and AI-powered decision-support layer.
 
 ---
 
 ## Project Overview
 
-The **AI-Powered Supply Chain Optimization Platform** is a full-stack supply-chain management system designed to help organizations make better operational decisions across warehouses, inventory, orders, and logistics.
+The AI-Powered Supply Chain Optimization Platform is a full-stack decision-support system for supply-chain teams managing warehouses, products, inventory, orders, and operational reports.
 
 The platform combines:
 
-- A production-style FastAPI backend
-- PostgreSQL database persistence
-- JWT authentication and role-based access control
-- Clean Architecture with routers, services, repositories, and models
-- AI-assisted forecasting and optimization modules
-- Interactive API documentation
-- A frontend dashboard prototype
-- Docker and cloud deployment readiness
+- Real-time inventory visibility
+- Warehouse and order management
+- Demand forecasting
+- Inventory optimization
+- Route optimization
+- Role-based access control
+- Dashboard KPIs and operational reports
+- A deployed FastAPI backend with interactive Swagger documentation
 
-The goal is to give supply-chain teams a practical decision-support system, not just a data viewer.
+The goal is to help teams move from fragmented operational data to faster, explainable, AI-assisted supply-chain decisions.
 
 ---
 
 ## What Problem Does This Solve?
 
-Supply-chain teams often struggle with fragmented operational data and slow manual decision-making. Common problems include:
+Supply-chain teams often struggle with fragmented data, manual decision-making, and limited visibility across warehouses and inventory.
 
-- No unified visibility across warehouses
-- Stockouts caused by poor demand planning
-- Overstock caused by inefficient replenishment
+Common operational problems include:
+
+- No unified inventory visibility across warehouses
+- Stockouts caused by late replenishment decisions
+- Overstock caused by poor demand forecasting
 - Manual warehouse allocation for incoming orders
-- Limited insight into reorder points and safety stock
-- Slow reporting across products, orders, inventory, and warehouse activity
-- No explainable AI layer to support operational decisions
+- Slow route planning and logistics decisions
+- Limited KPI visibility for managers
+- No clear decision-support layer between raw data and operations
 
-This platform addresses those issues by turning supply-chain data into actionable recommendations.
+This platform addresses these issues by turning operational data into structured recommendations that are explainable, testable, and available through a production API.
 
 ---
 
@@ -122,25 +127,86 @@ This platform addresses those issues by turning supply-chain data into actionabl
 
 | Capability | Description |
 |---|---|
-| Inventory Management | Tracks stock levels across warehouses and products |
-| Warehouse Management | Manages warehouse records, capacity, and operational data |
-| Order Management | Supports order creation, allocation, and lifecycle tracking |
-| AI Warehouse Allocation | Recommends the best warehouse for order fulfillment |
-| Demand Forecasting | Provides demand forecasting using an extensible forecasting interface |
-| Inventory Optimization | Calculates reorder points, safety stock, and replenishment recommendations |
-| Route Optimization | Provides route-planning support with an extensible optimization interface |
-| Dashboard KPIs | Shows management-level operational indicators |
-| Reports | Provides inventory and operational reporting endpoints |
-| Authentication | Uses JWT-based login, refresh, and current-user endpoints |
-| Role-Based Access | Supports system admin, organization admin, warehouse, inventory, and operations roles |
+| Inventory Management | Tracks product stock levels across warehouses |
+| Order Management | Supports order creation, tracking, allocation, and status updates |
+| Warehouse Allocation | Recommends the best warehouse for fulfilling an order |
+| Demand Forecasting | Estimates future product demand using historical demand patterns |
+| Inventory Optimization | Calculates safety stock, reorder points, and recommended reorder quantities |
+| Route Optimization | Suggests route sequence and estimated travel distance |
+| Management Dashboard | Shows KPIs, inventory status, low-stock alerts, and recent order activity |
+| Reports | Provides operational reports for inventory and management review |
+| Authentication | JWT-based login and token refresh |
+| Role-Based Access | Restricts access based on user responsibilities |
 
-Every AI recommendation is designed to be explainable and replaceable with more advanced models later.
+Every AI-assisted decision is designed to provide a recommendation plus a reason, not just a raw output.
+
+---
+
+## Technical Proof at a Glance
+
+| Proof Area | Result |
+|---|---|
+| Backend framework | FastAPI |
+| Runtime | Python 3.11 |
+| Database | PostgreSQL on Render |
+| Deployment | Live Render web service |
+| API documentation | Swagger UI at `/docs` |
+| Test suite | 69 passing tests |
+| Architecture | Router → Service → Repository → Model |
+| AI modules | 4 independent decision modules |
+| Auth | JWT authentication |
+| Access control | 5 user roles |
+| Database schema | Multi-table relational schema with Alembic migrations |
+| Frontend | Dashboard UI and API walkthrough assets |
+| Documentation | Architecture, API, AI modules, testing, deployment, and environment guides |
+
+---
+
+## AI Decision Layer
+
+The AI decision layer is separated from the core business logic. This makes the platform easier to test, explain, and upgrade.
+
+| AI Module | Current Implementation | Output |
+|---|---|---|
+| Demand Forecasting | Moving-average baseline | Expected future demand |
+| Inventory Optimization | EOQ-style reorder logic and safety stock calculation | Reorder quantity, safety stock, reorder point |
+| Warehouse Allocation | Score-based warehouse selection | Recommended warehouse for an order |
+| Route Optimization | Nearest-neighbor routing baseline | Suggested route sequence and estimated distance |
+
+The current implementation focuses on explainable baseline algorithms that can later be replaced with advanced ML, optimization, or simulation models without rewriting the API or business layer.
+
+---
+
+## Example Decision Outputs
+
+The following examples show the type of numerical decision support the platform provides. These values represent a demo supply-chain scenario and are intended to make the decision logic easy to evaluate.
+
+| Decision Area | Example Input | Platform Output | Decision Impact |
+|---|---|---|---|
+| Demand Forecasting | Historical demand: 16, 18, 20, 21, 19, 23, 25 units/day | 7-day forecast: 142 units; average daily demand: 20.3 units | Helps plan purchasing before demand exceeds available stock |
+| Inventory Optimization | Current stock: 38 units; average demand: 12/day; lead time: 5 days | Safety stock: 24 units; reorder point: 84 units; recommended reorder: 96 units | Flags a 46-unit gap before stockout risk becomes critical |
+| Warehouse Allocation | Order quantity: 50 units; 3 candidate warehouses | Selected warehouse score: 0.91; next-best score: 0.74 | Chooses the strongest fulfillment location based on stock, capacity, and proximity |
+| Route Optimization | 4 delivery points | Suggested route sequence: Warehouse → Stop 1 → Stop 3 → Stop 2 → Warehouse; estimated distance: 118.6 km | Converts delivery points into an optimized route sequence |
+| Dashboard | Inventory, orders, warehouses, and AI alerts | Low-stock alerts, recent order activity, inventory status, and KPIs | Gives managers a single operational view |
+
+### Impact Snapshot
+
+| Metric | Before Platform | With Platform |
+|---|---|---|
+| Inventory visibility | Manual checks across separate records | Unified API and dashboard visibility |
+| Reorder decisions | Reactive and delayed | Reorder point and safety-stock recommendation |
+| Warehouse allocation | Manual comparison | Automated warehouse recommendation |
+| Route planning | Manual route ordering | Suggested route sequence |
+| Management reporting | Fragmented operational data | Dashboard KPIs and report endpoints |
+| Technical confidence | Manual verification | 69 automated tests and documented API |
+
+The platform is not only a dashboard. It is a decision-support backend that can expose operational recommendations through API endpoints, reports, and future enterprise integrations.
 
 ---
 
 ## Demo & API Walkthrough
 
-The platform includes a fully documented FastAPI backend with Swagger UI available at `/docs`.
+The platform ships with a fully documented FastAPI backend. The interactive Swagger UI is available at `/docs`.
 
 The API covers:
 
@@ -151,7 +217,7 @@ The API covers:
 - Products
 - Inventory
 - Orders
-- AI insights
+- AI recommendations
 - Dashboard
 - Reports
 - Health checks
@@ -174,7 +240,7 @@ The API covers:
 ```text
 ┌─────────────────────────────────────────────────────────────┐
 │                     Frontend Dashboard                       │
-│          HTML5 / CSS3 / Vanilla JS dashboard prototype       │
+│          HTML5 / CSS3 / Vanilla JavaScript                   │
 └──────────────────────────┬──────────────────────────────────┘
                            │
                            │ REST API /api/v1/
@@ -184,15 +250,14 @@ The API covers:
 │                                                              │
 │  Routers ──► Services ──► Repositories ──► ORM Models        │
 │                 │                                            │
-│                 └──► AI Modules                              │
-│                      Forecasting / Inventory / Routing       │
+│                 └──► AI Decision Modules                     │
 └──────────────────────────┬──────────────────────────────────┘
                            │
               ┌────────────┴────────────┐
               │                         │
      ┌────────▼────────┐     ┌──────────▼──────────┐
      │   PostgreSQL    │     │  Alembic Migrations  │
-     │  Primary DB     │     │  Schema Versioning   │
+     │  Primary DB     │     │  Schema versioning    │
      └─────────────────┘     └─────────────────────┘
 ```
 
@@ -200,42 +265,15 @@ The API covers:
 
 | Layer | Responsibility |
 |---|---|
-| Routers | HTTP routes, request validation, response serialization |
-| Services | Business logic, domain rules, transaction orchestration |
-| Repositories | Database access and query logic |
-| Models | SQLAlchemy ORM database models |
+| Routers | HTTP routing, request validation, and response serialization |
+| Services | Business logic, domain rules, and transaction orchestration |
+| Repositories | Database access and query isolation |
+| Models | SQLAlchemy ORM definitions |
 | Schemas | Pydantic request and response validation |
 | AI Modules | Forecasting, optimization, allocation, and routing logic |
-| Migrations | Database schema versioning with Alembic |
+| Migrations | Version-controlled schema changes |
 
-This separation keeps the project maintainable, testable, and ready for future model upgrades.
-
----
-
-## AI Decision Layer
-
-The AI layer is built as a modular decision-support system. Each module follows a defined interface so that baseline algorithms can later be replaced with more advanced models without rewriting the API or business logic.
-
-| Module | Current Implementation | Future Extension |
-|---|---|---|
-| Warehouse Allocation | Score-based allocation using stock, capacity, and proximity | ML-based fulfillment recommendation |
-| Demand Forecasting | Moving-average forecasting baseline | ARIMA, Prophet, LSTM, or transformer forecasting |
-| Inventory Optimization | EOQ, safety stock, reorder points, and cost estimation | Stochastic optimization and multi-echelon inventory models |
-| Route Optimization | Nearest-neighbor routing baseline | Vehicle Routing Problem solvers or geospatial optimization |
-
-The current implementation is intentionally practical: it provides working recommendations now while preserving a clean path toward advanced AI models.
-
----
-
-## Example Decision Outputs
-
-| Decision Area | Platform Output |
-|---|---|
-| Demand Forecasting | Expected future demand for a selected product |
-| Inventory Optimization | Recommended reorder quantity, safety stock, and reorder point |
-| Warehouse Allocation | Suggested warehouse for fulfilling an order |
-| Route Optimization | Suggested route sequence and estimated route distance |
-| Dashboard | Low-stock alerts, order activity, inventory status, and KPIs |
+This structure keeps the system maintainable and prevents business logic from being mixed directly into API routes or database models.
 
 ---
 
@@ -259,13 +297,13 @@ Role-based access is enforced through the API and service layer.
 |---|---|
 | Backend | Python 3.11, FastAPI |
 | Database | PostgreSQL, SQLAlchemy, Alembic |
-| Authentication | JWT, python-jose, passlib, bcrypt |
-| Validation | Pydantic |
+| Authentication | JWT, python-jose, passlib/bcrypt |
+| Validation | Pydantic v2 |
 | Frontend | HTML5, CSS3, Vanilla JavaScript |
 | Testing | pytest, httpx, SQLite in-memory |
 | Deployment | Render |
 | Containerization | Docker, Docker Compose |
-| AI Assistance | IBM Bob |
+| Documentation | Markdown, Swagger/OpenAPI |
 
 ---
 
@@ -310,47 +348,47 @@ cd IBM-Bob-Challenge-2026
 
 # 2. Configure environment
 cp .env.example .env
-# Edit .env and set DATABASE_URL, SECRET_KEY, and demo admin credentials
 
-# 3. Create virtual environment and install dependencies
+# 3. Create and activate a virtual environment
 cd backend
 python3 -m venv .venv
 source .venv/bin/activate
 
+# 4. Install dependencies
 pip install -r requirements.txt
 
-# 4. Run database migrations
+# 5. Run database migrations
 alembic upgrade head
 
-# 5. Seed demo data
+# 6. Seed demo data
 python ../scripts/seed_data.py
 
-# 6. Start the API server
+# 7. Start the API server
 uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 ```
 
-Local access:
+Local URLs:
 
-```text
-API:         http://localhost:8000
-Swagger UI:  http://localhost:8000/docs
-ReDoc:       http://localhost:8000/redoc
-Health:      http://localhost:8000/health
-```
+| Resource | URL |
+|---|---|
+| API | `http://localhost:8000` |
+| Swagger Docs | `http://localhost:8000/docs` |
+| ReDoc | `http://localhost:8000/redoc` |
+| Health Check | `http://localhost:8000/health` |
 
 ---
 
 ### Docker Setup
 
 ```bash
-# Start backend and database
+# Start services
 docker-compose up -d
 
-# Run database migrations
+# Run migrations
 docker-compose exec backend alembic upgrade head
 
 # Seed demo data
-python scripts/seed_data.py
+docker-compose exec backend python ../scripts/seed_data.py
 
 # Verify health
 curl http://localhost:8000/health
@@ -367,17 +405,27 @@ source .venv/bin/activate
 # Run all tests
 pytest -v
 
-# Unit tests
+# Run unit tests
 pytest tests/unit/ -v
 
-# API tests
+# Run API tests
 pytest tests/api/ -v
 
-# Coverage report
+# Run coverage report
 pytest --cov=app --cov=ai --cov-report=term-missing
 ```
 
-Test infrastructure uses SQLite in memory, so tests do not require a running PostgreSQL instance.
+Test summary:
+
+| Test Area | Result |
+|---|---|
+| Unit tests | Passed |
+| API tests | Passed |
+| Total tests | 69 passed |
+| Test database | SQLite in-memory |
+| Production database | PostgreSQL |
+
+The test suite validates the core business logic, API behavior, authentication flow, repositories, services, and AI decision modules.
 
 ---
 
@@ -385,34 +433,32 @@ Test infrastructure uses SQLite in memory, so tests do not require a running Pos
 
 | Method | Endpoint | Description |
 |---|---|---|
-| GET | `/health` | System health check |
-| POST | `/api/v1/auth/login` | Authenticate user and receive JWT tokens |
+| GET | `/health` | Health check |
+| POST | `/api/v1/auth/login` | Authenticate and receive JWT tokens |
 | POST | `/api/v1/auth/refresh` | Refresh access token |
-| GET | `/api/v1/auth/me` | Get current authenticated user |
+| GET | `/api/v1/auth/me` | Get current user |
 | GET | `/api/v1/users` | List users |
 | POST | `/api/v1/users` | Create user |
-| GET | `/api/v1/users/{user_id}` | Get user |
-| PUT | `/api/v1/users/{user_id}` | Update user |
 | GET | `/api/v1/organizations` | List organizations |
 | POST | `/api/v1/organizations` | Create organization |
 | GET | `/api/v1/warehouses` | List warehouses |
 | POST | `/api/v1/warehouses` | Create warehouse |
 | GET | `/api/v1/products` | List products |
 | POST | `/api/v1/products` | Create product |
-| GET | `/api/v1/inventory` | List inventory records |
-| POST | `/api/v1/inventory` | Create or set inventory record |
+| GET | `/api/v1/inventory` | List inventory |
+| POST | `/api/v1/inventory` | Create or update inventory |
 | POST | `/api/v1/inventory/{id}/adjust` | Adjust stock quantity |
 | GET | `/api/v1/inventory/alerts/low-stock` | Low-stock alerts |
 | GET | `/api/v1/orders` | List orders |
 | POST | `/api/v1/orders` | Create order |
 | POST | `/api/v1/orders/{id}/allocate` | AI warehouse allocation |
-| POST | `/api/v1/ai/forecast/{product_id}` | Demand forecasting |
+| POST | `/api/v1/ai/forecast/{product_id}` | Demand forecast |
 | POST | `/api/v1/ai/optimize-inventory` | Inventory optimization |
 | POST | `/api/v1/ai/optimize-routes` | Route optimization |
 | GET | `/api/v1/dashboard/summary` | Management dashboard summary |
 | GET | `/api/v1/reports/inventory` | Inventory report |
 
-Full documentation is available in the deployed Swagger UI:
+Full interactive API documentation is available at:
 
 ```text
 https://ibm-supply-chain-api.onrender.com/docs
@@ -430,8 +476,8 @@ IBM-Bob-Challenge-2026/
 │   │   ├── core/
 │   │   ├── db/
 │   │   ├── models/
-│   │   ├── schemas/
 │   │   ├── repositories/
+│   │   ├── schemas/
 │   │   ├── services/
 │   │   └── main.py
 │   ├── ai/
@@ -441,11 +487,14 @@ IBM-Bob-Challenge-2026/
 │   ├── requirements.txt
 │   └── pytest.ini
 ├── frontend/
-├── docs/
-├── scripts/
+│   ├── src/
+│   ├── index.html
+│   └── nginx.conf
 ├── assets/
 │   ├── demo/
 │   └── screenshots/
+├── docs/
+├── scripts/
 ├── docker-compose.yml
 ├── .env.example
 ├── .python-version
@@ -459,55 +508,49 @@ IBM-Bob-Challenge-2026/
 
 | Document | Description |
 |---|---|
-| [Architecture](docs/architecture.md) | System design, layers, and data model |
+| [Architecture](docs/architecture.md) | System design, data flow, and layer responsibilities |
 | [API Reference](docs/api.md) | Endpoint contracts and examples |
-| [AI Modules](docs/ai-modules.md) | Forecasting and optimization logic |
-| [Development Guide](docs/development-guide.md) | Local development workflow |
+| [AI Modules](docs/ai-modules.md) | Forecasting, optimization, allocation, and routing logic |
+| [Development Guide](docs/development-guide.md) | Local setup and development workflow |
 | [Deployment Guide](docs/deployment-guide.md) | Docker and cloud deployment notes |
 | [Environment Variables](docs/environment-variables.md) | Required configuration values |
-| [Testing Guide](docs/testing-guide.md) | Test strategy and commands |
-| [Roadmap](docs/roadmap.md) | v1 status and future milestones |
+| [Testing Guide](docs/testing-guide.md) | Test structure and execution guide |
+| [Roadmap](docs/roadmap.md) | Completed work and future improvements |
 
 ---
 
 ## v1.0 Status
 
-- [x] Public GitHub repository
-- [x] Live Render deployment
+- [x] Clean Architecture project structure
 - [x] FastAPI backend
-- [x] PostgreSQL database connection
+- [x] PostgreSQL database configuration
+- [x] SQLAlchemy ORM models
+- [x] Alembic migrations
 - [x] JWT authentication
 - [x] Role-based access control
-- [x] Organization management
-- [x] Warehouse management
-- [x] Product management
-- [x] Inventory management
-- [x] Order management
-- [x] AI demand forecasting module
-- [x] AI inventory optimization module
-- [x] AI route optimization module
-- [x] Dashboard summary endpoint
-- [x] Reporting endpoints
-- [x] Frontend dashboard prototype
-- [x] Swagger API documentation
-- [x] Docker and Docker Compose support
-- [x] Alembic database migrations
-- [x] Demo seed data
-- [x] Test suite with 69 passing tests
-- [x] IBM Bob-assisted development and troubleshooting
-- [x] Challenge-ready documentation
+- [x] Organization, user, warehouse, product, inventory, and order modules
+- [x] Demand forecasting module
+- [x] Inventory optimization module
+- [x] Warehouse allocation module
+- [x] Route optimization module
+- [x] Dashboard and reporting endpoints
+- [x] Swagger/OpenAPI documentation
+- [x] Render live deployment
+- [x] Demo login account
+- [x] 69 passing tests
+- [x] README with live demo, judge walkthrough, IBM Bob usage, and decision-output proof
 
 ---
 
 ## Roadmap
 
-Future improvements may include:
+Future improvements could include:
 
 - Dedicated production frontend deployment
 - Advanced demand forecasting models
 - Geospatial route optimization
 - Real-time inventory events
-- Supplier-risk scoring
+- Supplier risk scoring
 - Multi-tenant organization dashboards
 - Extended analytics and exportable reports
 - CI/CD pipeline with automated tests
