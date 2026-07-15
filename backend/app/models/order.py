@@ -1,7 +1,7 @@
 """Order and OrderItem models — demand entry point for the supply chain."""
+import enum
 import uuid
 from typing import TYPE_CHECKING, List, Optional
-import enum
 
 from sqlalchemy import Enum, Float, ForeignKey, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -10,10 +10,10 @@ from app.db.base import Base, BaseModel
 from app.db.types import UUIDType
 
 if TYPE_CHECKING:
+    from app.models.ai_results import WarehouseAllocationResult
     from app.models.organization import Organization
     from app.models.product import Product
     from app.models.user import User
-    from app.models.ai_results import WarehouseAllocationResult
 
 
 class OrderStatus(str, enum.Enum):
@@ -47,15 +47,25 @@ class Order(Base, BaseModel):
         ForeignKey("users.id", ondelete="SET NULL"),
         nullable=True,
     )
-    reference_number: Mapped[str] = mapped_column(String(100), nullable=False, unique=True, index=True)
+    reference_number: Mapped[str] = mapped_column(
+        String(100), nullable=False, unique=True, index=True
+    )
     status: Mapped[OrderStatus] = mapped_column(
-        Enum(OrderStatus, name="order_status"),
+        Enum(
+            OrderStatus,
+            name="order_status",
+            values_callable=lambda enum_cls: [member.value for member in enum_cls],
+        ),
         default=OrderStatus.PENDING,
         nullable=False,
         index=True,
     )
     priority: Mapped[OrderPriority] = mapped_column(
-        Enum(OrderPriority, name="order_priority"),
+        Enum(
+            OrderPriority,
+            name="order_priority",
+            values_callable=lambda enum_cls: [member.value for member in enum_cls],
+        ),
         default=OrderPriority.NORMAL,
         nullable=False,
     )
@@ -66,8 +76,12 @@ class Order(Base, BaseModel):
     total_amount: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
 
     # Relationships
-    organization: Mapped["Organization"] = relationship("Organization", back_populates="orders")
-    created_by_user: Mapped[Optional["User"]] = relationship("User", foreign_keys=[created_by])
+    organization: Mapped["Organization"] = relationship(
+        "Organization", back_populates="orders"
+    )
+    created_by_user: Mapped[Optional["User"]] = relationship(
+        "User", foreign_keys=[created_by]
+    )
     items: Mapped[List["OrderItem"]] = relationship(
         "OrderItem", back_populates="order", cascade="all, delete-orphan"
     )
@@ -103,4 +117,7 @@ class OrderItem(Base, BaseModel):
     product: Mapped["Product"] = relationship("Product", back_populates="order_items")
 
     def __repr__(self) -> str:
-        return f"<OrderItem order={self.order_id} product={self.product_id} qty={self.quantity}>"
+        return (
+            f"<OrderItem order={self.order_id} "
+            f"product={self.product_id} qty={self.quantity}>"
+        )

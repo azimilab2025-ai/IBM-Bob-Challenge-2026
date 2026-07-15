@@ -1,7 +1,7 @@
 """User model with role-based access control."""
+import enum
 import uuid
 from typing import TYPE_CHECKING, Optional
-import enum
 
 from sqlalchemy import Boolean, Enum, ForeignKey, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -28,7 +28,11 @@ class User(Base, BaseModel):
     full_name: Mapped[str] = mapped_column(String(255), nullable=False)
     hashed_password: Mapped[str] = mapped_column(String(255), nullable=False)
     role: Mapped[UserRole] = mapped_column(
-        Enum(UserRole, name="user_role"),
+        Enum(
+            UserRole,
+            name="user_role",
+            values_callable=lambda enum_cls: [member.value for member in enum_cls],
+        ),
         nullable=False,
         default=UserRole.OPERATIONS_MANAGER,
     )
