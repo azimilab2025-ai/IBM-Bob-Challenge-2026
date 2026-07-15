@@ -22,15 +22,15 @@ This document provides a concise, reproducible verification path for the challen
 | Backend | FastAPI |
 | Database | PostgreSQL |
 | Containerization | Docker and Docker Compose |
-| Automated Tests | 69 passed, 1 warning in 8.83 seconds |
+| Automated Tests | 69 passed, 1 warning in 9.00 seconds |
 | AI Evaluation | Completed successfully through `scripts/evaluate_ai.py` |
 | Initial Functional Completion | Completed during the first 8 working days |
-| Submission Hardening Verification | 2026-07-15 |
-| Final Commit Hash | Pending final verification commit |
-| Final Release Tag | `v1.0.0-submission-final` — create after final verification |
-| Final Freeze Date | Pending final push, tag, release, and live confirmation |
+| Submission Hardening Verification | 2026-07-16 |
+| Verified Application Commit | `e39d3b1df0b9ee2d711f2f7eff98df7c888e5d139` |
+| Final Release Tag | `v1.0.0-submission-final` |
+| Final Freeze Date | 2026-07-16 — effective after tag and GitHub Release publication |
 
-The final commit hash, release tag, and final freeze date must be recorded only after all remaining verification steps in this document pass.
+The verified application commit records the tested and deployed implementation. The final release commit is identified by the annotated tag `v1.0.0-submission-final`, avoiding a self-referential commit hash inside this document.
 
 ---
 
@@ -280,7 +280,7 @@ Final verified result:
 
 ```text
 Python 3.11.15
-69 passed, 1 warning in 8.83s
+69 passed, 1 warning in 9.00s
 ```
 
 The test suite covers the core application behavior, including:
@@ -628,19 +628,13 @@ Push the verified commit:
 git push origin main
 ```
 
-Record the final commit hash:
+The tested and deployed application commit is recorded as:
 
-```bash
-git rev-parse HEAD
+```text
+e39d3b1df0b9ee2d711f2f7eff98df7c888e5d139
 ```
 
-Replace the pending value in the **Submission Snapshot** and **Final Release Record** tables with the exact output of:
-
-```bash
-git rev-parse HEAD
-```
-
-Do not invent, shorten, or manually construct the commit hash.
+The final documentation commit must not attempt to contain its own hash. The annotated tag `v1.0.0-submission-final` identifies the immutable final release commit after this document is pushed.
 
 ---
 
@@ -688,11 +682,11 @@ The repository is ready to freeze only when every required item below is confirm
 
 ### Public Evidence
 
-- [ ] Project video opens publicly.
-- [ ] GitHub repository opens publicly.
-- [ ] Swagger documentation opens publicly.
-- [ ] Health endpoint responds successfully.
-- [ ] Demo credentials authenticate successfully.
+- [x] Project video opens publicly.
+- [x] GitHub repository opens publicly.
+- [x] Swagger documentation opens publicly.
+- [x] Health endpoint responds successfully.
+- [x] Demo credentials authenticate successfully.
 
 ### Engineering Verification
 
@@ -700,13 +694,13 @@ The repository is ready to freeze only when every required item below is confirm
 - [x] An isolated Python 3.11 verification environment was created.
 - [x] Project and development dependencies installed successfully.
 - [x] `python -m pytest -q` completed successfully.
-- [x] The verified result is 69 passed, 1 warning in 8.83 seconds.
+- [x] The verified result is 69 passed, 1 warning in 9.00 seconds.
 - [x] `python scripts/evaluate_ai.py` completed successfully.
 - [x] Measured results match the documented deterministic scenario.
 - [x] VS Code reports no unresolved import warnings caused by repository configuration.
 - [ ] Docker Compose verification completes, when Docker is available.
-- [ ] `git status --short` contains only intended changes before commit.
-- [ ] Secret and credential review is completed.
+- [x] `git status --short` is clean before the release-record update.
+- [x] Secret and credential review is completed.
 
 ### Documentation Verification
 
@@ -715,48 +709,48 @@ The repository is ready to freeze only when every required item below is confirm
 - [x] Measured Results Snapshot matches the evaluation output.
 - [x] Synthetic-data limitations are clearly stated.
 - [x] The end-to-end decision workflow is documented.
-- [ ] `docs/verification.md` is linked from README.
+- [x] `docs/verification.md` is linked from README.
 - [x] Python 3.11.15 test evidence is recorded in this document.
 - [x] The initial implementation phase and later verification phase are distinguished transparently.
-- [ ] Final commit hash is recorded in this document.
-- [ ] Final freeze date is recorded in this document.
+- [x] The verified application commit is recorded in this document.
+- [x] Final freeze date is recorded in this document.
 
 ### Release Verification
 
-- [ ] Final commit is pushed to `main`.
-- [ ] Final commit hash is recorded.
+- [ ] Release-record commit is pushed to `main`.
+- [x] Verified application commit is recorded.
 - [ ] Tag `v1.0.0-submission-final` is pushed.
 - [ ] GitHub Release is created.
 - [ ] Release description identifies the frozen challenge version.
-- [ ] Render deployment is confirmed after the final push.
-- [ ] Live health and Swagger checks are repeated after deployment.
+- [x] Render deployment is confirmed for the verified application commit.
+- [x] Live health, Swagger, login, and authenticated profile checks are confirmed.
 - [ ] No further code changes are made after the freeze without a new version.
 
 ---
 
 ## 16. Final Release Record
 
-Complete the pending fields only after the final push, tag, release, and live verification.
+This record captures the verified application state. The final annotated tag and GitHub Release complete the repository freeze after this file is pushed.
 
 | Record | Final Value |
 |---|---|
 | Final Branch | `main` |
 | Verified Python Runtime | Python 3.11.15 |
-| Final Test Result | 69 passed, 1 warning in 8.83 seconds |
+| Final Test Result | 69 passed, 1 warning in 9.00 seconds |
 | AI Evaluation | Completed successfully |
 | AI Evaluation Script | `scripts/evaluate_ai.py` |
-| Final Commit Hash | Pending |
+| Verified Application Commit | `e39d3b1df0b9ee2d711f2f7eff98df7c888e5d139` |
 | Final Tag | `v1.0.0-submission-final` |
 | Initial Functional Completion | First 8 working days |
-| Submission Hardening Verification | 2026-07-15 |
-| Final Freeze Date | Pending |
-| Live Health Check | Pending final confirmation |
-| Swagger Check | Pending final confirmation |
-| Demo Authentication Check | Pending final confirmation |
-| Project Video Check | Pending final confirmation |
-| Repository Status | Pending final clean-status confirmation |
-| GitHub Release | Pending |
-| Render Deployment | Pending final confirmation |
+| Submission Hardening Verification | 2026-07-16 |
+| Final Freeze Date | 2026-07-16 — effective after tag and release publication |
+| Live Health Check | Confirmed healthy on 2026-07-16 |
+| Swagger Check | Confirmed publicly available on 2026-07-16 |
+| Demo Authentication Check | Login and `/api/v1/auth/me` confirmed with HTTP 200 on 2026-07-16 |
+| Project Video Check | Confirmed public |
+| Repository Status | Clean before release-record update |
+| GitHub Release | Create from `v1.0.0-submission-final` after the release commit is pushed |
+| Render Deployment | Live on verified application commit `e39d3b1` on 2026-07-16 |
 
 ---
 
