@@ -23,6 +23,51 @@
   />
 </p>
 
+## ⚡ Judge Quick Access
+
+| Evaluation Resource | Direct Access |
+|---|---|
+| 🎥 Project Video | [Watch the complete three-minute project presentation](https://youtu.be/ZjQFvznSG1Y) |
+| 🚀 Live API | [Open the deployed API platform](https://ibm-supply-chain-api.onrender.com) |
+| 🧪 Interactive Swagger | [Explore and test the API endpoints](https://ibm-supply-chain-api.onrender.com/docs) |
+| 💚 Health Check | [Verify live-service availability](https://ibm-supply-chain-api.onrender.com/health) |
+| 💻 Source Code | [Review the GitHub repository](https://github.com/azimilab2025-ai/IBM-Bob-Challenge-2026) |
+| 🔐 Demo Email | `admin@supplychain-demo.com` |
+| 🔑 Demo Password | `SupplyChainDemo2026!` |
+
+### ⏱️ Recommended 60-Second Judging Path
+
+1. Watch the project video for the complete end-to-end overview.
+2. Open the live Swagger documentation.
+3. Authenticate through `POST /api/v1/auth/login` using the demo account.
+4. Copy the returned JWT access token and select **Authorize** in Swagger.
+5. Evaluate the main decision-support workflow through:
+   - `GET /api/v1/dashboard/summary`
+   - `GET /api/v1/inventory/alerts/low-stock`
+   - `POST /api/v1/orders/{id}/allocate`
+   - `POST /api/v1/ai/forecast/{product_id}`
+   - `POST /api/v1/ai/optimize-inventory`
+   - `POST /api/v1/ai/optimize-routes`
+
+> **Recommended judging path:** Watch the project video, open the live Swagger documentation, authenticate with the demo account, and test the Orders, AI Insights, Forecasting, Inventory Optimization, and Route Optimization endpoints.
+
+---
+
+## 🧭 Judging Criteria Evidence
+
+| Judging Criterion | Evidence in This Project | Direct Verification |
+|---|---|---|
+| **Technical Execution** | FastAPI backend, PostgreSQL database, SQLAlchemy repositories, Alembic migrations, JWT authentication, role-based access control, Docker support, and 69 passing automated tests | [Technical Proof](#technical-proof-at-a-glance) · [Architecture](#architecture) · [Running Tests](#running-tests) · [Backend Source](backend/) · [Test Suite](backend/tests/) |
+| **Innovation** | Four modular and explainable decision-support capabilities covering demand forecasting, inventory optimization, warehouse allocation, and route optimization | [AI Decision Layer](#ai-decision-layer) · [AI Module Documentation](docs/ai-modules.md) · [AI Source](backend/ai/) |
+| **Feasibility** | Publicly deployed API, interactive Swagger documentation, live health verification, demo authentication, reproducible local setup, Docker Compose, and deployment documentation | [Live Demo](#live-demo) · [Quick Start](#quick-start) · [Verification Pack](docs/verification.md) · [Deployment Guide](docs/deployment-guide.md) |
+| **Challenge Fit** | IBM Bob supported architecture planning, implementation refinement, authentication work, debugging, testing, documentation, environment configuration, and Render deployment troubleshooting | [IBM Bob Usage](#ibm-bob-usage) |
+| **Real-World Impact** | The platform converts fragmented inventory, order, product, and warehouse information into forecasts, replenishment guidance, warehouse recommendations, route plans, alerts, and management KPIs | [Problem](#what-problem-does-this-solve) · [Platform Capabilities](#what-the-platform-does) · [Measured Results](#-measured-results-snapshot) |
+| **Usability and Evaluation** | Judges can access the video, live API, Swagger documentation, health endpoint, demo credentials, screenshots, and a guided evaluation path directly from the top of the repository | [Judge Quick Access](#-judge-quick-access) · [End-to-End Workflow](#-end-to-end-decision-workflow) · [Demo and API Walkthrough](#demo--api-walkthrough) |
+| **Maintainability** | Router, service, repository, schema, model, migration, and AI-module responsibilities are separated and documented | [Layer Responsibilities](#layer-responsibilities) · [Project Structure](#project-structure) |
+| **Transparency** | Current algorithms are identified as explainable baselines, measured outputs are explicitly labeled as synthetic-demo evidence, and future improvements are listed separately | [AI Decision Layer](#ai-decision-layer) · [Measured Results](#-measured-results-snapshot) · [Verification Pack](docs/verification.md) · [Roadmap](#roadmap) |
+
+> This evidence map links each judging dimension to a live resource, repository section, source directory, endpoint group, or supporting document so the project can be evaluated without searching through the repository.
+
 ---
 
 ## Live Demo
@@ -83,6 +128,48 @@ POST /api/v1/ai/forecast/{product_id}
 POST /api/v1/ai/optimize-inventory
 POST /api/v1/ai/optimize-routes
 ```
+
+---
+
+## 🔄 End-to-End Decision Workflow
+
+The platform connects operational data to measurable decisions through one continuous evaluation path:
+
+```text
+Login
+→ Dashboard Summary
+→ Inventory Risk
+→ Demand Forecast
+→ Inventory Recommendation
+→ Warehouse Allocation
+→ Route Optimization
+→ Measured Result
+```
+
+| Workflow Stage | Primary Endpoint | Decision Evidence |
+|---|---|---|
+| 1. Authenticate | `POST /api/v1/auth/login` | Returns JWT credentials for protected API access |
+| 2. Review Operations | `GET /api/v1/dashboard/summary` | Provides management KPIs and operational visibility |
+| 3. Detect Inventory Risk | `GET /api/v1/inventory/alerts/low-stock` | Identifies products requiring attention |
+| 4. Forecast Demand | `POST /api/v1/ai/forecast/{product_id}` | Produces explainable future-demand estimates |
+| 5. Recommend Inventory Action | `POST /api/v1/ai/optimize-inventory` | Calculates safety stock, reorder point, and order quantity |
+| 6. Allocate the Order | `POST /api/v1/orders/{id}/allocate` | Selects a warehouse using coverage, proximity, and capacity scoring |
+| 7. Optimize Delivery Sequence | `POST /api/v1/ai/optimize-routes` | Produces a route sequence and estimated distance |
+| 8. Verify the Result | `python3 scripts/evaluate_ai.py` | Reproduces the documented forecasting, inventory, allocation, and routing measurements |
+
+This workflow demonstrates that the platform is not a collection of isolated endpoints. It forms an explainable decision chain:
+
+```text
+Operational Data
+→ Risk Detection
+→ Forecast
+→ Recommendation
+→ Allocation
+→ Route Plan
+→ Measured Evidence
+```
+
+For the complete reproducibility procedure, test commands, release checks, and freeze process, see [Verification & Reproducibility Pack](docs/verification.md).
 
 ---
 
@@ -154,11 +241,13 @@ Every AI-assisted decision is designed to provide a recommendation plus a reason
 | Test suite | 69 passing tests |
 | Architecture | Router → Service → Repository → Model |
 | AI modules | 4 independent decision modules |
+| Measured AI evaluation | Deterministic synthetic scenario through `scripts/evaluate_ai.py` |
+| Reproducibility | Documented through `docs/verification.md` |
 | Auth | JWT authentication |
 | Access control | 5 user roles |
 | Database schema | Multi-table relational schema with Alembic migrations |
 | Frontend | Dashboard UI and API walkthrough assets |
-| Documentation | Architecture, API, AI modules, testing, deployment, and environment guides |
+| Documentation | Architecture, API, AI modules, testing, deployment, environment, and verification guides |
 
 ---
 
@@ -177,30 +266,65 @@ The current implementation focuses on explainable baseline algorithms that can l
 
 ---
 
-## Example Decision Outputs
+## 📊 Measured Results Snapshot
 
-The following examples show the type of numerical decision support the platform provides. These values represent a demo supply-chain scenario and are intended to make the decision logic easy to evaluate.
+The following results were generated by the current project implementations through `scripts/evaluate_ai.py`.
 
-| Decision Area | Example Input | Platform Output | Decision Impact |
+> **Evidence boundary:** These measurements use a deterministic synthetic demo scenario. They demonstrate the current system's reproducible behavior and are not presented as production KPIs or customer-performance claims.
+
+| Decision Area | Measured Input | Current System Result | Implementation Evidence |
 |---|---|---|---|
-| Demand Forecasting | Historical demand: 16, 18, 20, 21, 19, 23, 25 units/day | 7-day forecast: 142 units; average daily demand: 20.3 units | Helps plan purchasing before demand exceeds available stock |
-| Inventory Optimization | Current stock: 38 units; average demand: 12/day; lead time: 5 days | Safety stock: 24 units; reorder point: 84 units; recommended reorder: 96 units | Flags a 46-unit gap before stockout risk becomes critical |
-| Warehouse Allocation | Order quantity: 50 units; 3 candidate warehouses | Selected warehouse score: 0.91; next-best score: 0.74 | Chooses the strongest fulfillment location based on stock, capacity, and proximity |
-| Route Optimization | 4 delivery points | Suggested route sequence: Warehouse → Stop 1 → Stop 3 → Stop 2 → Warehouse; estimated distance: 118.6 km | Converts delivery points into an optimized route sequence |
-| Dashboard | Inventory, orders, warehouses, and AI alerts | Low-stock alerts, recent order activity, inventory status, and KPIs | Gives managers a single operational view |
+| Demand Forecasting | Historical demand: `16, 18, 20, 21, 19, 23, 25`; 7-day window; 7-day horizon | Daily forecast: **20.2857 units**; total forecast: **142.00 units**; one-step sample MAE: **4.00 units**; point confidence: **0.70** | `MovingAverageForecaster` |
+| Inventory Optimization | Average demand: **12 units/day**; demand standard deviation: **6.5**; lead time: **5 days**; service level: **95%** | Safety stock: **23.91 units**; reorder point: **83.91 units**; recommended order quantity: **96.66 units**; expected shortage risk: **5.0%** | `EOQOptimizer` |
+| Warehouse Allocation | Two order items; three candidate warehouses; coverage, proximity, and capacity scoring | Selected: **Berlin West Fulfillment Center**; score: **0.9756**; coverage: **100%**; second-best score: **0.9102**; score gap: **0.0654** | `WarehouseAllocationEngine` |
+| Route Optimization | One warehouse; four delivery stops; open route with no return leg | Initial distance: **167.59 km**; optimized distance: **133.77 km**; distance saved: **33.82 km**; measured improvement: **20.18%** | `NearestNeighborRouter` |
+
+### Measured Decision Details
+
+| Module | Additional Verifiable Result |
+|---|---|
+| Forecasting | One-step holdout prediction: **21.00 units** versus actual demand of **25.00 units** |
+| Inventory | Estimated holding cost: **$724.98** under the configured deterministic scenario |
+| Allocation | Candidate ranking: Berlin West **0.9756**, Leipzig Regional Hub **0.9102**, Potsdam Distribution Depot **0.6354** |
+| Routing | Optimized sequence: `ORDER-FALKENSEE → ORDER-POTSDAM → ORDER-ERKNER → ORDER-ORANIENBURG`; estimated duration: **200 minutes** |
+
+### Reproduce the Measurements
+
+Run the evaluation from the repository root:
+
+```bash
+python3 scripts/evaluate_ai.py
+```
+
+The evaluation is:
+
+- deterministic;
+- database-free;
+- network-free;
+- read-only;
+- based on the current project algorithms;
+- executable without adding new third-party dependencies.
+
+### Measurement Limitations
+
+- The dataset is synthetic and intended for transparent demonstration.
+- The forecasting MAE is a one-step sample holdout, not a multi-period production benchmark.
+- Route distance follows the current open-route implementation and excludes a return leg to the warehouse.
+- Warehouse scores use the current configured weights: coverage 70%, proximity 20%, and capacity 10%.
+- Results measure the current baseline implementations rather than production-scale operational performance.
 
 ### Impact Snapshot
 
 | Metric | Before Platform | With Platform |
 |---|---|---|
 | Inventory visibility | Manual checks across separate records | Unified API and dashboard visibility |
-| Reorder decisions | Reactive and delayed | Reorder point and safety-stock recommendation |
-| Warehouse allocation | Manual comparison | Automated warehouse recommendation |
-| Route planning | Manual route ordering | Suggested route sequence |
+| Reorder decisions | Reactive and delayed | Measured safety-stock, reorder-point, and order-quantity recommendations |
+| Warehouse allocation | Manual comparison | Measured multi-factor warehouse ranking and recommendation |
+| Route planning | Manual route ordering | Measured route sequence with **20.18%** distance improvement in the demo scenario |
 | Management reporting | Fragmented operational data | Dashboard KPIs and report endpoints |
-| Technical confidence | Manual verification | 69 automated tests and documented API |
+| Technical confidence | Manual verification | 69 automated tests plus a reproducible AI evaluation script |
 
-The platform is not only a dashboard. It is a decision-support backend that can expose operational recommendations through API endpoints, reports, and future enterprise integrations.
+The platform is not only a dashboard. It is a decision-support backend that exposes measurable operational recommendations through API endpoints, reports, and reproducible evaluation evidence.
 
 ---
 
@@ -494,8 +618,21 @@ IBM-Bob-Challenge-2026/
 │   ├── demo/
 │   └── screenshots/
 ├── docs/
+│   ├── ai-modules.md
+│   ├── api.md
+│   ├── architecture.md
+│   ├── deployment-guide.md
+│   ├── development-guide.md
+│   ├── environment-variables.md
+│   ├── roadmap.md
+│   ├── testing-guide.md
+│   └── verification.md
 ├── scripts/
+│   ├── evaluate_ai.py
+│   ├── seed_data.py
+│   └── setup.sh
 ├── docker-compose.yml
+├── pyrightconfig.json
 ├── .env.example
 ├── .python-version
 ├── README.md
@@ -515,6 +652,7 @@ IBM-Bob-Challenge-2026/
 | [Deployment Guide](docs/deployment-guide.md) | Docker and cloud deployment notes |
 | [Environment Variables](docs/environment-variables.md) | Required configuration values |
 | [Testing Guide](docs/testing-guide.md) | Test structure and execution guide |
+| [Verification & Reproducibility](docs/verification.md) | Test commands, measured AI evidence, live checks, release verification, and final-freeze procedure |
 | [Roadmap](docs/roadmap.md) | Completed work and future improvements |
 
 ---
@@ -538,7 +676,10 @@ IBM-Bob-Challenge-2026/
 - [x] Render live deployment
 - [x] Demo login account
 - [x] 69 passing tests
-- [x] README with live demo, judge walkthrough, IBM Bob usage, and decision-output proof
+- [x] Reproducible measured-results evaluation through `scripts/evaluate_ai.py`
+- [x] End-to-end decision workflow documented
+- [x] Verification and reproducibility pack
+- [x] README with live demo, judge walkthrough, IBM Bob usage, and measured decision evidence
 
 ---
 
